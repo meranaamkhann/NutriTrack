@@ -1,0 +1,407 @@
+openapi: 3.0.3
+info:
+  title: NutriTrack API
+  version: "0.1.0"
+  description: >
+    Calorie & nutrition tracking API. All endpoints except /health and
+    /auth/* require a Bearer access token. Every personal-data endpoint is
+    scoped to the authenticated user server-side; client-supplied IDs are
+    never trusted for ownership.
+servers:
+  - url: http://localhost:4000
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+        message: { type: string }
+        requestId: { type: string }
+    Food:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        servingSize: { type: string }
+        servingUnit: { type: string, enum: [G, ML, PIECE, CUP, TBSP, TSP, OZ] }
+        calories: { type: string }
+        proteinG: { type: string }
+        carbG: { type: string }
+        fatG: { type: string }
+        source: { type: string, enum: [SYSTEM, USER, IMPORTED, AI_ESTIMATED] }
+        ownerId: { type: string, format: uuid, nullable: true }
+    FoodLog:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        foodNameSnapshot: { type: string }
+        caloriesSnapshot: { type: string }
+        proteinGSnapshot: { type: string }
+        carbGSnapshot: { type: string }
+        fatGSnapshot: { type: string }
+        quantity: { type: string }
+        meal: { type: string, enum: [BREAKFAST, LUNCH, DINNER, SNACK, CUSTOM] }
+        loggedAt: { type: string, format: date-time }
+        entrySource: { type: string, enum: [MANUAL, AI_ESTIMATED] }
+    GoalHistoryEntry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        calculatedBmr: { type: string }
+        calculatedTdee: { type: string }
+        calorieTarget: { type: string }
+        proteinGTarget: { type: string }
+        carbGTarget: { type: string }
+        fatGTarget: { type: string }
+        effectiveFrom: { type: string, format: date-time }
+paths:
+  /health:
+    get:
+      summary: Liveness check
+      security: []
+      responses:
+        "200": { description: OK }
+
+  /auth/register:
+    post:
+      summary: Register a new account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 10 }
+      responses:
+        "201": { description: Account created }
+        "409": { description: Email already registered }
+        "429": { description: Rate limited }
+
+  /auth/login:
+    post:
+      summary: Log in, returns an access token and sets a refresh cookie
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string }
+                password: { type: string }
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken: { type: string }
+                  expiresIn: { type: integer }
+        "401": { description: Invalid email or password (generic, no enumeration) }
+
+  /auth/refresh:
+    post:
+      summary: Rotate the refresh token cookie for a new access token
+      security: []
+      responses:
+        "200": { description: New access token issued }
+        "401": { description: Invalid, expired, or reused session }
+
+  /auth/logout:
+    post:
+      summary: Revoke the current refresh token family
+      security: []
+      responses:
+        "204": { description: Logged out }
+
+  /auth/password-reset/request:
+    post:
+      summary: Request a password reset (always 200, no account enumeration)
+      security: []
+      responses:
+        "200": { description: Generic confirmation }
+
+  /users/me:
+    get:
+      summary: Get your profile
+      responses:
+        "200": { description: Profile }
+    put:
+      summary: Update your profile
+      responses:
+        "200": { description: Updated profile }
+
+  /users/me/goals/recalculate:
+    post:
+      summary: Recalculate BMR/TDEE/calorie/macro targets from latest profile + weight
+      responses:
+        "201":
+          description: New goal history entry (append-only — never overwrites a past entry)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GoalHistoryEntry" }
+        "400": { description: Missing required profile fields or no weight entry yet }
+
+  /users/me/goals/current:
+    get:
+      summary: Get the currently-effective goal
+      responses:
+        "200":
+          description: Current goal
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GoalHistoryEntry" }
+
+  /foods:
+    get:
+      summary: Search your own foods + system foods
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20, maximum: 50 }
+      responses:
+        "200":
+          description: Matching foods
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Food" }
+    post:
+      summary: Create a custom food (owned by you)
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Food" }
+
+  /foods/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      summary: Get a food (yours or a system food)
+      responses:
+        "200": { description: Food }
+        "403": { description: Not your food }
+        "404": { description: Not found }
+    put:
+      summary: Update a food you own
+      responses:
+        "200": { description: Updated }
+        "403": { description: Not your food }
+    delete:
+      summary: Delete a food you own (blocked if used in a recipe)
+      responses:
+        "204": { description: Deleted }
+        "409": { description: Still referenced by a recipe }
+
+  /logs:
+    get:
+      summary: List your food logs for a given date (in your profile timezone)
+      parameters:
+        - in: query
+          name: date
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Logs for that day
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/FoodLog" }
+    post:
+      summary: Log a food (nutrition is snapshotted at write time)
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FoodLog" }
+        "404": { description: Food not found }
+
+  /logs/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      summary: Edit a log entry you own
+      responses:
+        "200": { description: Updated }
+        "404": { description: Not found or not yours }
+    delete:
+      summary: Delete a log entry you own
+      responses:
+        "204": { description: Deleted }
+        "404": { description: Not found or not yours }
+
+  /recipes:
+    get:
+      summary: List your recipes
+      responses:
+        "200": { description: Recipes }
+    post:
+      summary: Create a recipe from foods you have access to
+      responses:
+        "201": { description: Created }
+
+  /recipes/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      summary: Get a recipe with computed per-serving nutrition
+      responses:
+        "200": { description: Recipe detail }
+        "404": { description: Not found or not yours }
+    delete:
+      summary: Delete a recipe you own
+      responses:
+        "204": { description: Deleted }
+
+  /recipes/{id}/log:
+    post:
+      summary: Log a recipe as a meal (snapshotted, like food logs)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "201": { description: Logged }
+        "404": { description: Not found or not yours }
+
+  /weights:
+    get:
+      summary: List your weight history
+      responses:
+        "200": { description: Weight entries }
+    post:
+      summary: Upsert today's (or any date's) weight entry
+      responses:
+        "200": { description: Saved }
+
+  /weights/{id}:
+    delete:
+      summary: Delete a weight entry you own
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204": { description: Deleted }
+        "404": { description: Not found or not yours }
+
+  /progress:
+    get:
+      summary: Daily calorie/macro rollup against the goal in effect each day
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        "200": { description: Daily rollup + weight history in range }
+        "400": { description: Range exceeds 366 days }
+
+  /ai/parse:
+    post:
+      summary: Parse free-text food description (untrusted output, not saved yet)
+      responses:
+        "201": { description: Parsed items for review, plus a requestId }
+        "429": { description: Daily AI parse limit reached }
+
+  /ai/parse/{id}/accept:
+    post:
+      summary: Commit reviewed/edited AI-parsed items as real, snapshotted logs
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "201": { description: Logs created }
+        "409": { description: This request was already accepted }
+
+  /export:
+    post:
+      summary: Generate a JSON/CSV export of all your personal data
+      responses:
+        "201": { description: Export ready, returns a short-lived download token }
+
+  /export/{id}:
+    get:
+      summary: Download an export (requires the token issued at creation)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: token
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: File contents }
+        "403": { description: Invalid token }
+        "404": { description: Not found, not ready, or expired }
+
+  /account/me:
+    delete:
+      summary: Permanently delete your account (requires password re-authentication)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string }
+      responses:
+        "204": { description: Account and all associated data deleted }
+        "401": { description: Incorrect password }
+
+  /admin/foods/{id}/verify:
+    put:
+      summary: (Admin only) set a food's verification status
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Updated }
+        "403": { description: Not an admin }
