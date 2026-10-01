@@ -199,7 +199,7 @@ export const foodLogs = pgTable(
     loggedDate: date("logged_date", { mode: "date" }).notNull(),
     loggedAt: timestamp("logged_at", { withTimezone: true }).notNull(),
     entrySource: entrySourceEnum("entry_source").notNull().default("MANUAL"),
-    idempotencyKey: uuid("idempotency_key"),
+    idempotencyKey: text("idempotency_key"),
     ...timestamps
   },
   (t) => ({
@@ -303,5 +303,24 @@ export const exportJobs = pgTable(
   },
   (t) => ({
     userIdx: index("export_jobs_user_idx").on(t.userId)
+  })
+);
+
+export const adminAuditLog = pgTable(
+  "admin_audit_log",
+  {
+    id: id(),
+    adminUserId: uuid("admin_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    action: text("action").notNull(),
+    targetTable: text("target_table").notNull(),
+    targetId: text("target_id").notNull(),
+    detail: jsonb("detail"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => ({
+    adminIdx: index("admin_audit_log_admin_idx").on(t.adminUserId),
+    targetIdx: index("admin_audit_log_target_idx").on(t.targetTable, t.targetId)
   })
 );

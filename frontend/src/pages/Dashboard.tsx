@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "../lib/api";
+import { useToast } from "../lib/toast";
 import type { Food, FoodLog, GoalHistoryEntry, MealType } from "../lib/types";
 import { Button, EmptyState, ErrorText, Field, Input, PageHeader, Panel, Select } from "../components/ui";
 import { CalorieRing } from "../components/CalorieRing";
 import { MacroBar } from "../components/MacroBar";
+import { ListSkeleton, PanelSkeleton } from "../components/Skeleton";
 
 const MEALS: MealType[] = ["BREAKFAST", "LUNCH", "DINNER", "SNACK"];
 const MEAL_LABELS: Record<MealType, string> = {
@@ -15,6 +17,7 @@ const MEAL_LABELS: Record<MealType, string> = {
 };
 
 export function Dashboard() {
+  const { push } = useToast();
   const [logs, setLogs] = useState<FoodLog[]>([]);
   const [goal, setGoal] = useState<GoalHistoryEntry | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,8 +60,16 @@ export function Dashboard() {
   );
 
   async function deleteLog(id: string) {
-    await api.delete(`/logs/${id}`);
+    // Optimistic: remove immediately so it doesn't feel laggy, put it back
+    // and toast if the server actually rejects the delete.
+    const previous = logs;
     setLogs((prev) => prev.filter((l) => l.id !== id));
+    try {
+      await api.delete(`/logs/${id}`);
+    } catch (err) {
+      setLogs(previous);
+      push("error", err instanceof ApiError ? err.message : "Could not remove that entry");
+    }
   }
 
   const byMeal = MEALS.map((meal) => ({ meal, items: logs.filter((l) => l.meal === meal) }));
@@ -71,19 +82,25 @@ export function Dashboard() {
       />
       <ErrorText>{error}</ErrorText>
 
-      <Panel className="mb-6">
-        <CalorieRing consumed={totals.calories} target={goal ? Number(goal.calorieTarget) : null} />
-        <div className="mt-5 grid grid-cols-3 gap-4">
-          <MacroBar label="Protein" grams={totals.proteinG} targetGrams={goal ? Number(goal.proteinGTarget) : undefined} colorClass="bg-pine" />
-          <MacroBar label="Carbs" grams={totals.carbG} targetGrams={goal ? Number(goal.carbGTarget) : undefined} colorClass="bg-gold" />
-          <MacroBar label="Fat" grams={totals.fatG} targetGrams={goal ? Number(goal.fatGTarget) : undefined} colorClass="bg-brick" />
+      {loading ? (
+        <div className="mb-6">
+          <PanelSkeleton />
         </div>
-        {!goal && (
-          <p className="mt-4 text-sm text-ink-soft">
-            No calorie target yet — set up your profile in Settings to get one calculated for you.
-          </p>
-        )}
-      </Panel>
+      ) : (
+        <Panel className="mb-6">
+          <CalorieRing consumed={totals.calories} target={goal ? Number(goal.calorieTarget) : null} />
+          <div className="mt-5 grid grid-cols-3 gap-4">
+            <MacroBar label="Protein" grams={totals.proteinG} targetGrams={goal ? Number(goal.proteinGTarget) : undefined} colorClass="bg-pine" />
+            <MacroBar label="Carbs" grams={totals.carbG} targetGrams={goal ? Number(goal.carbGTarget) : undefined} colorClass="bg-gold" />
+            <MacroBar label="Fat" grams={totals.fatG} targetGrams={goal ? Number(goal.fatGTarget) : undefined} colorClass="bg-brick" />
+          </div>
+          {!goal && (
+            <p className="mt-4 text-sm text-ink-soft">
+              No calorie target yet — set up your profile in Settings to get one calculated for you.
+            </p>
+          )}
+        </Panel>
+      )}
 
       <div className="mb-3 flex items-center justify-between">
         <h2 className="font-display text-lg font-semibold text-ink">Log</h2>
@@ -95,6 +112,7 @@ export function Dashboard() {
           <AddFoodForm
             onAdded={() => {
               setShowAdd(false);
+              push("success", "Added to today's log.");
               load();
             }}
           />
@@ -102,7 +120,7 @@ export function Dashboard() {
       )}
 
       {loading ? (
-        <p className="text-sm text-ink-soft">Loading…</p>
+        <ListSkeleton rows={3} />
       ) : logs.length === 0 ? (
         <EmptyState title="Nothing logged yet" body="Add your first food above to start tracking today." />
       ) : (
@@ -152,6 +170,10 @@ function AddFoodForm({ onAdded }: { onAdded: () => void }) {
   const [meal, setMeal] = useState<MealType>("BREAKFAST");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Generated once per form mount and reused for retries of THIS submission
+  // intent — a double-click or a network retry sends the same key, so the
+  // server collapses them into one log instead of creating a duplicate.
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   useEffect(() => {
     if (!query.trim()) {
@@ -160,7 +182,7 @@ function AddFoodForm({ onAdded }: { onAdded: () => void }) {
     }
     const handle = setTimeout(() => {
       api.get<Food[]>("/foods", { q: query, limit: 8 }).then(setResults).catch(() => setResults([]));
-    }, 250);
+    }, 200);
     return () => clearTimeout(handle);
   }, [query]);
 
@@ -174,7 +196,8 @@ function AddFoodForm({ onAdded }: { onAdded: () => void }) {
         foodId: selected.id,
         quantity: Number(quantity),
         meal,
-        loggedAt: new Date().toISOString()
+        loggedAt: new Date().toISOString(),
+        idempotencyKey
       });
       onAdded();
     } catch (err) {

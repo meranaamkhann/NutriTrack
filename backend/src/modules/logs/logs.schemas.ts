@@ -7,7 +7,7 @@ export const createLogSchema = z.object({
     meal: z.enum(["BREAKFAST", "LUNCH", "DINNER", "SNACK", "CUSTOM"]),
     customMealLabel: z.string().trim().max(60).optional(),
     loggedAt: z.coerce.date().max(new Date(Date.now() + 24 * 60 * 60 * 1000)),
-    idempotencyKey: z.string().uuid().optional()
+    idempotencyKey: z.string().min(1).max(128).optional()
   })
 });
 

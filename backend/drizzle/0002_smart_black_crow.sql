@@ -1,0 +1,1 @@
+ALTER TABLE "food_logs" ALTER COLUMN "idempotency_key" SET DATA TYPE text;

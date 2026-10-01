@@ -275,6 +275,86 @@ describe("account deletion requires re-authentication", () => {
   });
 });
 
+describe("admin actions are audit logged", () => {
+  it("records an admin_audit_log entry when a food's verification status changes", async () => {
+    const admin = await registerAndLogin();
+    // Promote directly in the DB for the test — there is no self-service
+    // admin-promotion endpoint (by design: role changes are an operator
+    // action, never something an authenticated user can grant themselves).
+    const { db } = await import("../src/db/client.js");
+    const { users } = await import("../src/db/schema.js");
+    const { eq } = await import("drizzle-orm");
+    await db.update(users).set({ role: "ADMIN" }).where(eq(users.email, admin.email));
+    const reAuthed = await request(app).post("/auth/login").send({ email: admin.email, password: "correcthorse1" });
+    const adminToken = reAuthed.body.accessToken as string;
+
+    const food = await createFood(adminToken);
+
+    const verify = await request(app)
+      .put(`/admin/foods/${food.id}/verify`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ status: "VERIFIED" });
+    expect(verify.status).toBe(200);
+
+    const auditLog = await request(app).get("/admin/audit-log").set("Authorization", `Bearer ${adminToken}`);
+    expect(auditLog.status).toBe(200);
+    const entry = auditLog.body.find((e: { targetId: string }) => e.targetId === food.id);
+    expect(entry).toBeTruthy();
+    expect(entry.action).toBe("food.verify");
+  });
+
+  it("blocks a non-admin from the admin routes entirely", async () => {
+    const a = await registerAndLogin();
+    const res = await request(app).get("/admin/audit-log").set("Authorization", `Bearer ${a.token}`);
+    expect(res.status).toBe(403);
+  });
+});
+
+describe("duplicate submission protection", () => {
+  it("collapses a rapid duplicate food-log submission (no idempotency key) into one entry", async () => {
+    const a = await registerAndLogin();
+    const food = await createFood(a.token);
+    const loggedAt = new Date().toISOString();
+    const payload = { foodId: food.id, quantity: 100, meal: "SNACK", loggedAt };
+
+    const [first, second] = await Promise.all([
+      request(app).post("/logs").set("Authorization", `Bearer ${a.token}`).send(payload),
+      request(app).post("/logs").set("Authorization", `Bearer ${a.token}`).send(payload)
+    ]);
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    expect(first.body.id).toBe(second.body.id);
+
+    const logsToday = await request(app)
+      .get(`/logs?date=${loggedAt}`)
+      .set("Authorization", `Bearer ${a.token}`);
+    expect(logsToday.body.filter((l: { foodId: string }) => l.foodId === food.id)).toHaveLength(1);
+  });
+
+  it("still allows a genuinely different second log for the same food/meal (different quantity)", async () => {
+    const a = await registerAndLogin();
+    const food = await createFood(a.token);
+    const loggedAt = new Date().toISOString();
+
+    await request(app)
+      .post("/logs")
+      .set("Authorization", `Bearer ${a.token}`)
+      .send({ foodId: food.id, quantity: 100, meal: "SNACK", loggedAt });
+    const second = await request(app)
+      .post("/logs")
+      .set("Authorization", `Bearer ${a.token}`)
+      .send({ foodId: food.id, quantity: 50, meal: "SNACK", loggedAt });
+
+    expect(second.status).toBe(201);
+
+    const logsToday = await request(app)
+      .get(`/logs?date=${loggedAt}`)
+      .set("Authorization", `Bearer ${a.token}`);
+    expect(logsToday.body.filter((l: { foodId: string }) => l.foodId === food.id)).toHaveLength(2);
+  });
+});
+
 describe("input validation rejects malformed/malicious values", () => {
   it("rejects negative and zero food log quantities", async () => {
     const a = await registerAndLogin();

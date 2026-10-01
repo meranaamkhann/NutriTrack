@@ -6,9 +6,11 @@ import { users, refreshTokens, verificationTokens } from "../../db/schema.js";
 import { AppError } from "../../utils/AppError.js";
 import { generateOpaqueToken, hashToken } from "../../lib/crypto.js";
 import { signAccessToken } from "../../lib/jwt.js";
+import { sendEmail, verificationEmail, passwordResetEmail } from "../../lib/mailer.js";
+import { logger } from "../../lib/logger.js";
 import { env } from "../../config/env.js";
 
-const ARGON2_OPTS = { type: argon2.argon2id, memoryCost: 19456, timeCost: 2, parallelism: 1 };
+const ARGON2_OPTS = { type: argon2.argon2id, memoryCost: env.ARGON2_MEMORY_COST_KB, timeCost: env.ARGON2_TIME_COST, parallelism: 1 };
 
 export interface IssuedSession {
   accessToken: string;
@@ -29,6 +31,13 @@ export async function registerUser(email: string, password: string) {
     tokenHash: hashToken(verifyToken),
     purpose: "EMAIL_VERIFY",
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+  });
+
+  const emailContent = verificationEmail(verifyToken);
+  await sendEmail({ to: user.email, ...emailContent }).catch((err) => {
+    // Don't fail registration just because delivery failed — the account
+    // is still created; ops should alert on this log line separately.
+    logger.error({ err }, "verification email failed to send");
   });
 
   return { user, verifyToken };
@@ -136,6 +145,13 @@ export async function requestPasswordReset(email: string): Promise<void> {
     tokenHash: hashToken(token),
     purpose: "PASSWORD_RESET",
     expiresAt: new Date(Date.now() + 60 * 60 * 1000)
+  });
+
+  const emailContent = passwordResetEmail(token);
+  await sendEmail({ to: user.email, ...emailContent }).catch((err) => {
+    // Never let an email delivery failure change this endpoint's response
+    // shape/timing in a way that reveals whether the account exists.
+    logger.error({ err }, "password reset email failed to send");
   });
 }
 

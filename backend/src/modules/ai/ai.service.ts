@@ -3,13 +3,13 @@ import { db } from "../../db/client.js";
 import { aiParseRequests, foods, foodLogs, profiles } from "../../db/schema.js";
 import { AppError } from "../../utils/AppError.js";
 import { localDateInTimezone } from "../../lib/timezone.js";
-import { StubAiProvider, parseAndValidate } from "./ai.provider.js";
+import { buildAiProvider, parseAndValidate } from "./ai.provider.js";
 import { env } from "../../config/env.js";
 
 type MealType = (typeof foodLogs.$inferSelect)["meal"];
 type ServingUnit = (typeof foods.$inferSelect)["servingUnit"];
 
-const provider = new StubAiProvider();
+const provider = buildAiProvider();
 
 export async function requestParse(userId: string, rawText: string) {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);

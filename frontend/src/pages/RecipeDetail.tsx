@@ -3,10 +3,13 @@ import { useNavigate, useParams } from "react-router-dom";
 import { api, ApiError } from "../lib/api";
 import type { MealType, RecipeDetail as RecipeDetailType } from "../lib/types";
 import { Button, ErrorText, Field, PageHeader, Panel, Select, Input } from "../components/ui";
+import { PanelSkeleton } from "../components/Skeleton";
+import { useToast } from "../lib/toast";
 
 const MEALS: MealType[] = ["BREAKFAST", "LUNCH", "DINNER", "SNACK"];
 
 export function RecipeDetail() {
+  const { push } = useToast();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [detail, setDetail] = useState<RecipeDetailType | null>(null);
@@ -14,7 +17,6 @@ export function RecipeDetail() {
   const [meal, setMeal] = useState<MealType>("LUNCH");
   const [error, setError] = useState("");
   const [logging, setLogging] = useState(false);
-  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     if (!id) return;
@@ -32,7 +34,7 @@ export function RecipeDetail() {
         meal,
         loggedAt: new Date().toISOString()
       });
-      setNotice("Logged to today.");
+      push("success", "Logged to today.");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not log recipe");
     } finally {
@@ -46,7 +48,7 @@ export function RecipeDetail() {
     navigate("/recipes");
   }
 
-  if (!detail) return <p className="text-sm text-ink-soft">Loading…</p>;
+  if (!detail) return <PanelSkeleton />;
 
   return (
     <div>
@@ -93,7 +95,6 @@ export function RecipeDetail() {
         <form onSubmit={logIt} className="flex flex-col gap-4">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Log this recipe</h2>
           <ErrorText>{error}</ErrorText>
-          {notice && <p className="rounded-md bg-pine-tint px-3 py-2 text-sm text-pine-dark">{notice}</p>}
           <div className="flex gap-4">
             <Field label="Servings eaten">
               <Input

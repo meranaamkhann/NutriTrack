@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import type { DailyProgress } from "../lib/types";
 import { EmptyState, Field, Input, PageHeader, Panel } from "../components/ui";
+import { PanelSkeleton } from "../components/Skeleton";
 
 function daysAgo(n: number) {
   const d = new Date();
@@ -39,7 +40,7 @@ export function Progress() {
       </div>
 
       {loading ? (
-        <p className="text-sm text-ink-soft">Loading…</p>
+        <PanelSkeleton />
       ) : !data || data.days.length === 0 ? (
         <EmptyState title="No data in this range" body="Log some food in this date range to see progress here." />
       ) : (

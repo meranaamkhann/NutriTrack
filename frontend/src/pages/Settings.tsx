@@ -4,17 +4,19 @@ import { api, ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import type { ActivityLevel, GoalHistoryEntry, GoalType, Profile, Sex } from "../lib/types";
 import { Button, ErrorText, Field, Input, PageHeader, Panel, Select } from "../components/ui";
+import { PanelSkeleton } from "../components/Skeleton";
+import { useToast } from "../lib/toast";
 
 const ACTIVITY_LEVELS: ActivityLevel[] = ["SEDENTARY", "LIGHT", "MODERATE", "ACTIVE", "VERY_ACTIVE"];
 const GOALS: GoalType[] = ["LOSE", "MAINTAIN", "GAIN"];
 
 export function Settings() {
   const { logout } = useAuth();
+  const { push } = useToast();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [goal, setGoal] = useState<GoalHistoryEntry | null>(null);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -40,7 +42,7 @@ export function Settings() {
         goal: profile.goal,
         timezone: profile.timezone
       });
-      setNotice("Profile saved.");
+      push("success", "Profile saved.");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not save profile");
     } finally {
@@ -53,24 +55,28 @@ export function Settings() {
     try {
       const newGoal = await api.post<GoalHistoryEntry>("/users/me/goals/recalculate");
       setGoal(newGoal);
-      setNotice("Goals recalculated from your latest profile and weight.");
+      push("success", "Goals recalculated from your latest profile and weight.");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Add a weight entry and complete your profile first");
     }
   }
 
   async function downloadExport(format: "JSON" | "CSV") {
-    const job = await api.post<{ jobId: string; token: string }>("/export", { format });
-    await api.downloadBlob(`/export/${job.jobId}`, { token: job.token }, `nutritrack-export.${format.toLowerCase()}`);
+    try {
+      const job = await api.post<{ jobId: string; token: string }>("/export", { format });
+      await api.downloadBlob(`/export/${job.jobId}`, { token: job.token }, `nutritrack-export.${format.toLowerCase()}`);
+      push("success", `${format} export downloaded.`);
+    } catch (err) {
+      push("error", err instanceof ApiError ? err.message : "Export failed");
+    }
   }
 
-  if (!profile) return <p className="text-sm text-ink-soft">Loading…</p>;
+  if (!profile) return <PanelSkeleton />;
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="Settings" />
       <ErrorText>{error}</ErrorText>
-      {notice && <p className="rounded-md bg-pine-tint px-3 py-2 text-sm text-pine-dark">{notice}</p>}
 
       <Panel>
         <form onSubmit={saveProfile} className="flex flex-col gap-4">

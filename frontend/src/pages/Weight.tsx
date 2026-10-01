@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../lib/api";
+import { useToast } from "../lib/toast";
 import type { Weight as WeightEntry } from "../lib/types";
-import { Button, EmptyState, ErrorText, Field, Input, PageHeader, Panel } from "../components/ui";
+import { EmptyState, ErrorText, Field, Input, PageHeader, Panel, Button } from "../components/ui";
+import { ListSkeleton } from "../components/Skeleton";
 
 export function Weight() {
+  const { push } = useToast();
   const [entries, setEntries] = useState<WeightEntry[]>([]);
   const [weightKg, setWeightKg] = useState("");
   const [recordedAt, setRecordedAt] = useState(() => new Date().toISOString().slice(0, 10));
@@ -28,6 +31,7 @@ export function Weight() {
     try {
       await api.post("/weights", { weightKg: Number(weightKg), recordedAt });
       setWeightKg("");
+      push("success", "Weight saved.");
       load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not save weight");
@@ -37,11 +41,18 @@ export function Weight() {
   }
 
   async function remove(id: string) {
-    await api.delete(`/weights/${id}`);
+    const previous = entries;
     setEntries((prev) => prev.filter((e) => e.id !== id));
+    try {
+      await api.delete(`/weights/${id}`);
+    } catch (err) {
+      setEntries(previous);
+      push("error", err instanceof ApiError ? err.message : "Could not remove that entry");
+    }
   }
 
-  const trend = entries.length >= 2 ? Number(entries[0].weightKg) - Number(entries[entries.length - 1].weightKg) : null;
+  const trend =
+    entries.length >= 2 ? Number(entries[0].weightKg) - Number(entries[entries.length - 1].weightKg) : null;
 
   return (
     <div>
@@ -78,7 +89,7 @@ export function Weight() {
       )}
 
       {loading ? (
-        <p className="text-sm text-ink-soft">Loading…</p>
+        <ListSkeleton rows={5} />
       ) : entries.length === 0 ? (
         <EmptyState title="No weight entries yet" body="Log your weight above to start tracking trends." />
       ) : (

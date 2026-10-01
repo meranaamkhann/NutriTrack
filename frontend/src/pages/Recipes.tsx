@@ -3,8 +3,11 @@ import { Link } from "react-router-dom";
 import { api, ApiError } from "../lib/api";
 import type { Food, Recipe } from "../lib/types";
 import { Button, EmptyState, ErrorText, Field, Input, PageHeader, Panel } from "../components/ui";
+import { ListSkeleton } from "../components/Skeleton";
+import { useToast } from "../lib/toast";
 
 export function Recipes() {
+  const { push } = useToast();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -33,6 +36,7 @@ export function Recipes() {
           <CreateRecipeForm
             onCreated={() => {
               setShowCreate(false);
+              push("success", "Recipe created.");
               load();
             }}
           />
@@ -40,7 +44,7 @@ export function Recipes() {
       )}
 
       {loading ? (
-        <p className="text-sm text-ink-soft">Loading…</p>
+        <ListSkeleton rows={4} />
       ) : recipes.length === 0 ? (
         <EmptyState title="No recipes yet" body="Create one from foods you've already added." />
       ) : (

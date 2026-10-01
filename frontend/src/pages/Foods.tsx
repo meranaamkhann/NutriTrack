@@ -2,10 +2,13 @@ import { useEffect, useState } from "react";
 import { api, ApiError } from "../lib/api";
 import type { Food } from "../lib/types";
 import { Button, EmptyState, ErrorText, Field, Input, PageHeader, Panel, Select } from "../components/ui";
+import { ListSkeleton } from "../components/Skeleton";
+import { useToast } from "../lib/toast";
 
 const UNITS = ["G", "ML", "PIECE", "CUP", "TBSP", "TSP", "OZ"];
 
 export function Foods() {
+  const { push } = useToast();
   const [query, setQuery] = useState("");
   const [foods, setFoods] = useState<Food[]>([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -39,6 +42,7 @@ export function Foods() {
           <CreateFoodForm
             onCreated={() => {
               setShowCreate(false);
+              push("success", "Food created.");
               load();
             }}
           />
@@ -46,7 +50,7 @@ export function Foods() {
       )}
 
       {loading ? (
-        <p className="text-sm text-ink-soft">Loading…</p>
+        <ListSkeleton rows={5} />
       ) : foods.length === 0 ? (
         <EmptyState title="No foods found" body="Try a different search, or create your own food." />
       ) : (
