@@ -14,6 +14,12 @@ export const authRouter = Router();
 
 authRouter.post("/register", registerLimiter, validate(registerSchema), ctrl.register);
 authRouter.post("/verify-email", validate(verifyEmailSchema), ctrl.verifyEmail);
+authRouter.post(
+  "/verify-email/resend",
+  passwordResetLimiter,
+  validate(passwordResetRequestSchema),
+  ctrl.resendVerificationEmail
+);
 authRouter.post("/login", loginLimiter, validate(loginSchema), ctrl.login);
 authRouter.post("/refresh", ctrl.refresh);
 authRouter.post("/logout", ctrl.logout);

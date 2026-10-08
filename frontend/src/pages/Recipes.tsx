@@ -1,26 +1,17 @@
-import { useEffect, useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, ApiError } from "../lib/api";
-import type { Food, Recipe } from "../lib/types";
+import { ApiError } from "../lib/api";
+import { useCreateRecipe, useFoodSearch, useRecipes } from "../lib/queries";
+import type { Food } from "../lib/types";
 import { Button, EmptyState, ErrorText, Field, Input, PageHeader, Panel } from "../components/ui";
 import { ListSkeleton } from "../components/Skeleton";
 import { useToast } from "../lib/toast";
 
 export function Recipes() {
   const { push } = useToast();
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [showCreate, setShowCreate] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  async function load() {
-    setLoading(true);
-    setRecipes(await api.get<Recipe[]>("/recipes"));
-    setLoading(false);
-  }
-
-  useEffect(() => {
-    load();
-  }, []);
+  const recipesQuery = useRecipes();
+  const recipes = recipesQuery.data ?? [];
 
   return (
     <div>
@@ -37,13 +28,12 @@ export function Recipes() {
             onCreated={() => {
               setShowCreate(false);
               push("success", "Recipe created.");
-              load();
             }}
           />
         </div>
       )}
 
-      {loading ? (
+      {recipesQuery.isLoading ? (
         <ListSkeleton rows={4} />
       ) : recipes.length === 0 ? (
         <EmptyState title="No recipes yet" body="Create one from foods you've already added." />
@@ -74,26 +64,25 @@ function CreateRecipeForm({ onCreated }: { onCreated: () => void }) {
   const [name, setName] = useState("");
   const [servings, setServings] = useState("4");
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Food[]>([]);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [ingredients, setIngredients] = useState<DraftIngredient[]>([]);
   const [error, setError] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  useEffect(() => {
-    if (!query.trim()) {
-      setResults([]);
-      return;
-    }
-    const handle = setTimeout(() => {
-      api.get<Food[]>("/foods", { q: query, limit: 6 }).then(setResults).catch(() => setResults([]));
-    }, 250);
-    return () => clearTimeout(handle);
-  }, [query]);
+  const searchQuery = useFoodSearch(debouncedQuery);
+  const createRecipe = useCreateRecipe();
+  const results = debouncedQuery ? searchQuery.data ?? [] : [];
+
+  function onQueryChange(value: string) {
+    setQuery(value);
+    clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => setDebouncedQuery(value), 250);
+  }
 
   function addIngredient(food: Food) {
     setIngredients((prev) => [...prev, { food, quantity: String(Number(food.servingSize)) }]);
     setQuery("");
-    setResults([]);
+    setDebouncedQuery("");
   }
 
   function setIngredientQty(index: number, quantity: string) {
@@ -104,26 +93,24 @@ function CreateRecipeForm({ onCreated }: { onCreated: () => void }) {
     setIngredients((prev) => prev.filter((_, i) => i !== index));
   }
 
-  async function submit(e: React.FormEvent) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
     if (ingredients.length === 0) {
       setError("Add at least one ingredient");
       return;
     }
     setError("");
-    setSubmitting(true);
-    try {
-      await api.post("/recipes", {
+    createRecipe.mutate(
+      {
         name,
         servings: Number(servings),
         ingredients: ingredients.map((ing) => ({ foodId: ing.food.id, quantity: Number(ing.quantity) }))
-      });
-      onCreated();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not create recipe");
-    } finally {
-      setSubmitting(false);
-    }
+      },
+      {
+        onSuccess: () => onCreated(),
+        onError: (err) => setError(err instanceof ApiError ? err.message : "Could not create recipe")
+      }
+    );
   }
 
   return (
@@ -147,7 +134,7 @@ function CreateRecipeForm({ onCreated }: { onCreated: () => void }) {
         </div>
 
         <Field label="Add ingredient">
-          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="search your foods" />
+          <Input value={query} onChange={(e) => onQueryChange(e.target.value)} placeholder="search your foods" />
         </Field>
         {results.length > 0 && (
           <div className="divide-y divide-line rounded-md border border-line">
@@ -191,8 +178,8 @@ function CreateRecipeForm({ onCreated }: { onCreated: () => void }) {
           </div>
         )}
 
-        <Button type="submit" disabled={submitting}>
-          {submitting ? "Creating…" : "Create recipe"}
+        <Button type="submit" disabled={createRecipe.isPending}>
+          {createRecipe.isPending ? "Creating…" : "Create recipe"}
         </Button>
       </form>
     </Panel>

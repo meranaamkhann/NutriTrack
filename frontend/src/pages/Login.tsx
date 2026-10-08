@@ -44,6 +44,9 @@ export function Login() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </Field>
+          <Link to="/forgot-password" className="-mt-2 text-right text-sm font-medium text-pine">
+            Forgot password?
+          </Link>
           <Button type="submit" disabled={loading}>
             {loading ? "Logging in…" : "Log in"}
           </Button>

@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { api, ApiError } from "../lib/api";
-import type { Food } from "../lib/types";
+import { useRef, useState } from "react";
+import { ApiError } from "../lib/api";
+import { useCreateFood, useFoodSearch } from "../lib/queries";
 import { Button, EmptyState, ErrorText, Field, Input, PageHeader, Panel, Select } from "../components/ui";
 import { ListSkeleton } from "../components/Skeleton";
 import { useToast } from "../lib/toast";
@@ -10,28 +10,24 @@ const UNITS = ["G", "ML", "PIECE", "CUP", "TBSP", "TSP", "OZ"];
 export function Foods() {
   const { push } = useToast();
   const [query, setQuery] = useState("");
-  const [foods, setFoods] = useState<Food[]>([]);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [showCreate, setShowCreate] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  async function load() {
-    setLoading(true);
-    const res = await api.get<Food[]>("/foods", { q: query || undefined, limit: 50 });
-    setFoods(res);
-    setLoading(false);
+  const foodsQuery = useFoodSearch(debouncedQuery);
+  const foods = foodsQuery.data ?? [];
+
+  function onQueryChange(value: string) {
+    setQuery(value);
+    clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => setDebouncedQuery(value), 200);
   }
-
-  useEffect(() => {
-    const handle = setTimeout(load, 200);
-    return () => clearTimeout(handle);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query]);
 
   return (
     <div>
       <PageHeader title="Foods" subtitle="Your custom foods and the shared food database." />
       <div className="mb-4 flex gap-3">
-        <Input placeholder="Search foods…" value={query} onChange={(e) => setQuery(e.target.value)} className="flex-1" />
+        <Input placeholder="Search foods…" value={query} onChange={(e) => onQueryChange(e.target.value)} className="flex-1" />
         <Button onClick={() => setShowCreate((s) => !s)} variant="secondary">
           {showCreate ? "Close" : "+ New food"}
         </Button>
@@ -43,13 +39,12 @@ export function Foods() {
             onCreated={() => {
               setShowCreate(false);
               push("success", "Food created.");
-              load();
             }}
           />
         </div>
       )}
 
-      {loading ? (
+      {foodsQuery.isLoading ? (
         <ListSkeleton rows={5} />
       ) : foods.length === 0 ? (
         <EmptyState title="No foods found" body="Try a different search, or create your own food." />
@@ -85,18 +80,17 @@ function CreateFoodForm({ onCreated }: { onCreated: () => void }) {
     fatG: "0"
   });
   const [error, setError] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const createFood = useCreateFood();
 
   function set<K extends keyof typeof form>(key: K, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  async function submit(e: React.FormEvent) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    setSubmitting(true);
-    try {
-      await api.post("/foods", {
+    createFood.mutate(
+      {
         name: form.name,
         servingSize: Number(form.servingSize),
         servingUnit: form.servingUnit,
@@ -104,13 +98,12 @@ function CreateFoodForm({ onCreated }: { onCreated: () => void }) {
         proteinG: Number(form.proteinG),
         carbG: Number(form.carbG),
         fatG: Number(form.fatG)
-      });
-      onCreated();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not create food");
-    } finally {
-      setSubmitting(false);
-    }
+      },
+      {
+        onSuccess: () => onCreated(),
+        onError: (err) => setError(err instanceof ApiError ? err.message : "Could not create food")
+      }
+    );
   }
 
   return (
@@ -155,8 +148,8 @@ function CreateFoodForm({ onCreated }: { onCreated: () => void }) {
             <Input type="number" step="0.1" min="0" value={form.fatG} onChange={(e) => set("fatG", e.target.value)} />
           </Field>
         </div>
-        <Button type="submit" disabled={submitting}>
-          {submitting ? "Creating…" : "Create food"}
+        <Button type="submit" disabled={createFood.isPending}>
+          {createFood.isPending ? "Creating…" : "Create food"}
         </Button>
       </form>
     </Panel>

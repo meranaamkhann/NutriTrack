@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
-import { api, ApiError } from "../lib/api";
+import { useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { ApiError } from "../lib/api";
 import { useToast } from "../lib/toast";
-import type { Food, FoodLog, GoalHistoryEntry, MealType } from "../lib/types";
+import { useCreateLog, useCurrentGoal, useDeleteLog, useFoodSearch, useTodayLogs, useUpdateLog, qk } from "../lib/queries";
+import type { Food, FoodLog, MealType } from "../lib/types";
 import { Button, EmptyState, ErrorText, Field, Input, PageHeader, Panel, Select } from "../components/ui";
 import { CalorieRing } from "../components/CalorieRing";
 import { MacroBar } from "../components/MacroBar";
@@ -16,37 +19,29 @@ const MEAL_LABELS: Record<MealType, string> = {
   CUSTOM: "Other"
 };
 
+// A reasonable default so the meal selector doesn't always start on
+// Breakfast regardless of when you're actually logging something.
+function defaultMealForNow(): MealType {
+  const hour = new Date().getHours();
+  if (hour < 11) return "BREAKFAST";
+  if (hour < 16) return "LUNCH";
+  if (hour < 21) return "DINNER";
+  return "SNACK";
+}
+
 export function Dashboard() {
   const { push } = useToast();
-  const [logs, setLogs] = useState<FoodLog[]>([]);
-  const [goal, setGoal] = useState<GoalHistoryEntry | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [showAdd, setShowAdd] = useState(false);
-  const [error, setError] = useState("");
-
+  const qc = useQueryClient();
   const today = useMemo(() => new Date().toISOString(), []);
+  const dateKey = today.slice(0, 10);
 
-  async function load() {
-    setLoading(true);
-    setError("");
-    try {
-      const [logsRes, goalRes] = await Promise.all([
-        api.get<FoodLog[]>("/logs", { date: today }),
-        api.get<GoalHistoryEntry | null>("/users/me/goals/current")
-      ]);
-      setLogs(logsRes);
-      setGoal(goalRes);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not load today");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const logsQuery = useTodayLogs(today);
+  const goalQuery = useCurrentGoal();
+  const deleteLog = useDeleteLog();
+  const [showAdd, setShowAdd] = useState(false);
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const logs = logsQuery.data ?? [];
+  const goal = goalQuery.data ?? null;
 
   const totals = logs.reduce(
     (acc, log) => {
@@ -59,20 +54,20 @@ export function Dashboard() {
     { calories: 0, proteinG: 0, carbG: 0, fatG: 0 }
   );
 
-  async function deleteLog(id: string) {
-    // Optimistic: remove immediately so it doesn't feel laggy, put it back
-    // and toast if the server actually rejects the delete.
-    const previous = logs;
-    setLogs((prev) => prev.filter((l) => l.id !== id));
-    try {
-      await api.delete(`/logs/${id}`);
-    } catch (err) {
-      setLogs(previous);
-      push("error", err instanceof ApiError ? err.message : "Could not remove that entry");
-    }
+  function removeLog(id: string) {
+    const key = qk.logsForDate(dateKey);
+    const previous = qc.getQueryData<FoodLog[]>(key);
+    qc.setQueryData<FoodLog[]>(key, (old) => old?.filter((l) => l.id !== id));
+    deleteLog.mutate(id, {
+      onError: (err) => {
+        qc.setQueryData(key, previous);
+        push("error", err instanceof ApiError ? err.message : "Could not remove that entry");
+      }
+    });
   }
 
   const byMeal = MEALS.map((meal) => ({ meal, items: logs.filter((l) => l.meal === meal) }));
+  const loading = logsQuery.isLoading || goalQuery.isLoading;
 
   return (
     <div>
@@ -80,9 +75,9 @@ export function Dashboard() {
         title="Today"
         subtitle={new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
       />
-      <ErrorText>{error}</ErrorText>
+      {logsQuery.isError && <ErrorText>Could not load today's log.</ErrorText>}
 
-      {loading ? (
+      {goalQuery.isLoading ? (
         <div className="mb-6">
           <PanelSkeleton />
         </div>
@@ -96,7 +91,11 @@ export function Dashboard() {
           </div>
           {!goal && (
             <p className="mt-4 text-sm text-ink-soft">
-              No calorie target yet — set up your profile in Settings to get one calculated for you.
+              No calorie target yet —{" "}
+              <a href="/settings" className="font-medium text-pine">
+                set up your profile in Settings
+              </a>{" "}
+              to get one calculated for you.
             </p>
           )}
         </Panel>
@@ -104,7 +103,12 @@ export function Dashboard() {
 
       <div className="mb-3 flex items-center justify-between">
         <h2 className="font-display text-lg font-semibold text-ink">Log</h2>
-        <Button onClick={() => setShowAdd((s) => !s)}>{showAdd ? "Close" : "+ Add food"}</Button>
+        <div className="flex gap-2">
+          <Link to="/quick-add">
+            <Button variant="secondary">Quick add</Button>
+          </Link>
+          <Button onClick={() => setShowAdd((s) => !s)}>{showAdd ? "Close" : "+ Add food"}</Button>
+        </div>
       </div>
 
       {showAdd && (
@@ -113,7 +117,6 @@ export function Dashboard() {
             onAdded={() => {
               setShowAdd(false);
               push("success", "Added to today's log.");
-              load();
             }}
           />
         </div>
@@ -134,24 +137,7 @@ export function Dashboard() {
                 </h3>
                 <div className="divide-y divide-line rounded-lg border border-line bg-white">
                   {m.items.map((log) => (
-                    <div key={log.id} className="flex items-center justify-between px-4 py-3">
-                      <div>
-                        <p className="text-sm font-medium text-ink">{log.foodNameSnapshot}</p>
-                        <p className="text-xs text-ink-soft">
-                          {Number(log.quantity)}
-                          {log.entrySource === "AI_ESTIMATED" ? " · AI estimate" : ""}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm text-ink">{Math.round(Number(log.caloriesSnapshot))} kcal</span>
-                        <button
-                          onClick={() => deleteLog(log.id)}
-                          className="text-xs font-medium text-brick hover:underline"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
+                    <LogRow key={log.id} log={log} onRemove={() => removeLog(log.id)} />
                   ))}
                 </div>
               </div>
@@ -162,49 +148,117 @@ export function Dashboard() {
   );
 }
 
+function LogRow({ log, onRemove }: { log: FoodLog; onRemove: () => void }) {
+  const { push } = useToast();
+  const updateLog = useUpdateLog();
+  const [editing, setEditing] = useState(false);
+  const [quantity, setQuantity] = useState(String(Number(log.quantity)));
+
+  function save() {
+    const value = Number(quantity);
+    if (!value || value <= 0) return;
+    updateLog.mutate(
+      { id: log.id, quantity: value },
+      {
+        onSuccess: () => setEditing(false),
+        onError: (err) => push("error", err instanceof ApiError ? err.message : "Could not update that entry")
+      }
+    );
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <p className="flex-1 text-sm font-medium text-ink">{log.foodNameSnapshot}</p>
+        <Input
+          type="number"
+          step="0.1"
+          min="0.1"
+          autoFocus
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+          className="w-20"
+        />
+        <button onClick={save} disabled={updateLog.isPending} className="text-xs font-medium text-pine hover:underline">
+          {updateLog.isPending ? "Saving…" : "Save"}
+        </button>
+        <button
+          onClick={() => {
+            setEditing(false);
+            setQuantity(String(Number(log.quantity)));
+          }}
+          className="text-xs font-medium text-ink-soft hover:underline"
+        >
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between px-4 py-3">
+      <div>
+        <p className="text-sm font-medium text-ink">{log.foodNameSnapshot}</p>
+        <p className="text-xs text-ink-soft">
+          {Number(log.quantity)}
+          {log.entrySource === "AI_ESTIMATED" ? " · AI estimate" : ""}
+        </p>
+      </div>
+      <div className="flex items-center gap-3">
+        <span className="text-sm text-ink">{Math.round(Number(log.caloriesSnapshot))} kcal</span>
+        <button onClick={() => setEditing(true)} className="text-xs font-medium text-pine hover:underline">
+          Edit
+        </button>
+        <button onClick={onRemove} className="text-xs font-medium text-brick hover:underline">
+          Remove
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AddFoodForm({ onAdded }: { onAdded: () => void }) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Food[]>([]);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selected, setSelected] = useState<Food | null>(null);
   const [quantity, setQuantity] = useState("100");
-  const [meal, setMeal] = useState<MealType>("BREAKFAST");
+  const [meal, setMeal] = useState<MealType>(defaultMealForNow());
   const [error, setError] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  // Generated once per form mount and reused for retries of THIS submission
-  // intent — a double-click or a network retry sends the same key, so the
-  // server collapses them into one log instead of creating a duplicate.
   const [idempotencyKey] = useState(() => crypto.randomUUID());
 
-  useEffect(() => {
-    if (!query.trim()) {
-      setResults([]);
-      return;
-    }
-    const handle = setTimeout(() => {
-      api.get<Food[]>("/foods", { q: query, limit: 8 }).then(setResults).catch(() => setResults([]));
-    }, 200);
-    return () => clearTimeout(handle);
-  }, [query]);
+  const searchQuery = useFoodSearch(debouncedQuery);
+  const createLog = useCreateLog();
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  async function submit(e: React.FormEvent) {
+  // Debounced separately from `query` so the input stays instantly
+  // responsive while the network request only fires 200ms after typing
+  // stops — each keystroke cancels the previous pending fetch.
+  function onQueryChange(value: string) {
+    setQuery(value);
+    setSelected(null);
+    clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => setDebouncedQuery(value), 200);
+  }
+
+  const results = selected ? [] : searchQuery.data ?? [];
+
+  function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!selected) return;
     setError("");
-    setSubmitting(true);
-    try {
-      await api.post("/logs", {
+    createLog.mutate(
+      {
         foodId: selected.id,
         quantity: Number(quantity),
         meal,
         loggedAt: new Date().toISOString(),
         idempotencyKey
-      });
-      onAdded();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not add food");
-    } finally {
-      setSubmitting(false);
-    }
+      },
+      {
+        onSuccess: () => onAdded(),
+        onError: (err) => setError(err instanceof ApiError ? err.message : "Could not add food")
+      }
+    );
   }
 
   return (
@@ -212,14 +266,7 @@ function AddFoodForm({ onAdded }: { onAdded: () => void }) {
       <form onSubmit={submit} className="flex flex-col gap-4">
         <ErrorText>{error}</ErrorText>
         <Field label="Search your foods">
-          <Input
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setSelected(null);
-            }}
-            placeholder="e.g. chicken breast"
-          />
+          <Input value={query} onChange={(e) => onQueryChange(e.target.value)} placeholder="e.g. chicken breast" />
         </Field>
         {results.length > 0 && !selected && (
           <div className="divide-y divide-line rounded-md border border-line">
@@ -229,7 +276,6 @@ function AddFoodForm({ onAdded }: { onAdded: () => void }) {
                 key={food.id}
                 onClick={() => {
                   setSelected(food);
-                  setResults([]);
                   setQuery(food.name);
                 }}
                 className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-paper"
@@ -265,8 +311,8 @@ function AddFoodForm({ onAdded }: { onAdded: () => void }) {
             </Field>
           </div>
         )}
-        <Button type="submit" disabled={!selected || submitting}>
-          {submitting ? "Adding…" : "Add to log"}
+        <Button type="submit" disabled={!selected || createLog.isPending}>
+          {createLog.isPending ? "Adding…" : "Add to log"}
         </Button>
       </form>
     </Panel>

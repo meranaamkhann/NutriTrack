@@ -132,4 +132,16 @@ describe("auth: register -> verify -> login -> refresh -> logout", () => {
     expect(forMissing.status).toBe(200);
     expect(forExisting.body.message).toBe(forMissing.body.message);
   });
+
+  it("resend-verification also returns a generic 200 whether the email exists, doesn't exist, or is already verified", async () => {
+    const existing = uniqueEmail();
+    await request(app).post("/auth/register").send({ email: existing, password: "correcthorse1" });
+
+    const forUnverified = await request(app).post("/auth/verify-email/resend").send({ email: existing });
+    const forMissing = await request(app).post("/auth/verify-email/resend").send({ email: uniqueEmail() });
+
+    expect(forUnverified.status).toBe(200);
+    expect(forMissing.status).toBe(200);
+    expect(forUnverified.body.message).toBe(forMissing.body.message);
+  });
 });

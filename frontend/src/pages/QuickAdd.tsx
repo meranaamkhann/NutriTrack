@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, ApiError } from "../lib/api";
+import { ApiError } from "../lib/api";
+import { useAiParse, useAcceptAiParse } from "../lib/queries";
 import type { AiParsedItem, MealType } from "../lib/types";
 import { Button, ErrorText, Field, Input, PageHeader, Panel, Select } from "../components/ui";
 
@@ -16,43 +17,41 @@ export function QuickAdd() {
   const [requestId, setRequestId] = useState<string | null>(null);
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [accepting, setAccepting] = useState(false);
 
-  async function parse(e: React.FormEvent) {
+  const parseMutation = useAiParse();
+  const acceptMutation = useAcceptAiParse(requestId ?? "");
+
+  function parse(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    setLoading(true);
-    try {
-      const res = await api.post<{ requestId: string; items: AiParsedItem[] }>("/ai/parse", { rawText: text });
-      setRequestId(res.requestId);
-      setItems(res.items.map((it) => ({ ...it, loggedAt: new Date().toISOString() })));
-      if (res.items.length === 0) {
-        setError("Nothing recognized. This preview build doesn't have a live model connected yet — try adding foods directly instead.");
-      }
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not parse that");
-    } finally {
-      setLoading(false);
-    }
+    parseMutation.mutate(text, {
+      onSuccess: (res) => {
+        setRequestId(res.requestId);
+        setItems(res.items.map((it) => ({ ...it, loggedAt: new Date().toISOString() })));
+        if (res.items.length === 0) {
+          setError(
+            "Nothing recognized. This preview build doesn't have a live model connected yet — try adding foods directly instead."
+          );
+        }
+      },
+      onError: (err) => setError(err instanceof ApiError ? err.message : "Could not parse that")
+    });
   }
 
   function updateItem(i: number, patch: Partial<ReviewItem>) {
     setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
   }
 
-  async function accept() {
+  function accept() {
     if (!requestId) return;
-    setAccepting(true);
     setError("");
-    try {
-      await api.post(`/ai/parse/${requestId}/accept`, { items });
-      navigate("/");
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not save these entries");
-    } finally {
-      setAccepting(false);
-    }
+    acceptMutation.mutate(items, {
+      // The mutation hook already invalidates the logs query cache on
+      // success, so Today reflects these as soon as it's visited — without
+      // that, Today would keep showing its last-cached (pre-AI-add) logs.
+      onSuccess: () => navigate("/"),
+      onError: (err) => setError(err instanceof ApiError ? err.message : "Could not save these entries")
+    });
   }
 
   return (
@@ -71,8 +70,8 @@ export function QuickAdd() {
               maxLength={500}
             />
           </Field>
-          <Button type="submit" disabled={loading || !text.trim()}>
-            {loading ? "Reading…" : "Parse"}
+          <Button type="submit" disabled={parseMutation.isPending || !text.trim()}>
+            {parseMutation.isPending ? "Reading…" : "Parse"}
           </Button>
         </form>
       </Panel>
@@ -117,8 +116,8 @@ export function QuickAdd() {
               </div>
             </Panel>
           ))}
-          <Button onClick={accept} disabled={accepting}>
-            {accepting ? "Saving…" : `Save ${items.length} item${items.length > 1 ? "s" : ""} to today`}
+          <Button onClick={accept} disabled={acceptMutation.isPending}>
+            {acceptMutation.isPending ? "Saving…" : `Save ${items.length} item${items.length > 1 ? "s" : ""} to today`}
           </Button>
         </div>
       )}

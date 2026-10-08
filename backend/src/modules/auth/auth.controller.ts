@@ -69,6 +69,11 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
   res.status(204).send();
 });
 
+export const resendVerificationEmail = asyncHandler(async (req, res) => {
+  await authService.resendVerificationEmail(req.body.email);
+  res.status(200).json({ message: "If that email exists and isn't verified yet, a new link has been sent" });
+});
+
 export const requestPasswordReset = asyncHandler(async (req, res) => {
   await authService.requestPasswordReset(req.body.email);
   res.status(200).json({ message: "If that email exists, a reset link has been sent" });

@@ -3,6 +3,9 @@ import { useAuth } from "./lib/auth";
 import { AppShell } from "./components/AppShell";
 import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
+import { ForgotPassword } from "./pages/ForgotPassword";
+import { ResetPassword } from "./pages/ResetPassword";
+import { VerifyEmail } from "./pages/VerifyEmail";
 import { Dashboard } from "./pages/Dashboard";
 import { Foods } from "./pages/Foods";
 import { Recipes } from "./pages/Recipes";
@@ -32,6 +35,9 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
       <Route element={<ProtectedRoutes />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/foods" element={<Foods />} />

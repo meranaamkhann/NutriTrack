@@ -3,6 +3,49 @@
 A full-stack calorie & nutrition tracker: Node/TypeScript/Express/Drizzle/PostgreSQL backend,
 React/TypeScript/Vite/Tailwind frontend.
 
+## Third pass: closing the "doesn't feel like a standard app" gap
+
+A user reported the app felt laggy and didn't match conventions they expect
+from apps like this. Investigated and fixed for real, not just reworded:
+
+- **The password-reset email linked to pages that didn't exist.** The
+  mailer generated a real link to `/reset-password?token=...`, but the
+  frontend had no route for it — clicking it silently redirected to the
+  dashboard and lost the token. There was also no "Forgot password?" link
+  on the login page at all. **Fixed**: added `ForgotPassword`,
+  `ResetPassword`, and `VerifyEmail` pages, wired the routes, added the
+  login-page link, added a resend-verification endpoint. Verified live:
+  extracted a real reset token from the dev-mode email log, confirmed the
+  old password stopped working and the new one logged in.
+- **`unitPref` (metric/imperial) was in the database, the API, and the
+  TypeScript types — and used nowhere in the UI.** Weight and height were
+  always shown and entered in kg/cm regardless of what was stored. **Fixed**:
+  added a real unit toggle in Settings, and Weight/Settings now convert
+  for display and input while the API still stores canonical kg/cm.
+  `targetWeightKg` had the same problem (modeled, never surfaced) and got
+  the same fix.
+- **The actual cause of the reported "lag" was architectural, not a slow
+  backend**: every page did its own fetch on every mount with zero caching,
+  so switching tabs re-showed a full loading skeleton every time, even for
+  a page visited seconds earlier. **Fixed**: introduced TanStack Query as a
+  proper caching layer across every page, with optimistic updates on
+  delete/edit actions backed by real rollback-on-error, not just immediate
+  UI assumptions.
+- **The AI quick-add feature had no way to reach it** — the route existed,
+  nothing linked to it. **Fixed**: added it to the sidebar nav and as a
+  button next to "Add food" on Today.
+- **Logged food entries could only be deleted and re-added, never edited.**
+  **Fixed**: inline quantity editing on each log row.
+- **"Add food" always defaulted to Breakfast regardless of time of day.**
+  **Fixed**: defaults based on the current hour, like standard apps do.
+
+One thing worth knowing: wiring in a real caching layer meant re-checking
+every mutation's cache invalidation by hand — e.g. the AI quick-add flow
+previously navigated to Today after saving without invalidating the logs
+cache, which would have shown stale data under the new caching model even
+though it worked fine before caching existed. Caught and fixed as part of
+this pass, not left for someone to find later.
+
 ## Run it
 
 ```bash

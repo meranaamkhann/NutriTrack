@@ -135,6 +135,27 @@ export async function revokeRefreshFamily(presentedToken: string): Promise<void>
     .where(and(eq(refreshTokens.familyId, record.familyId), isNull(refreshTokens.revokedAt)));
 }
 
+export async function resendVerificationEmail(email: string): Promise<void> {
+  const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  // Same no-enumeration shape as password reset: silent no-op if the email
+  // doesn't exist, or if it's already verified — the caller gets the same
+  // generic response either way.
+  if (!user || user.emailVerified) return;
+
+  const verifyToken = generateOpaqueToken();
+  await db.insert(verificationTokens).values({
+    userId: user.id,
+    tokenHash: hashToken(verifyToken),
+    purpose: "EMAIL_VERIFY",
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+  });
+
+  const emailContent = verificationEmail(verifyToken);
+  await sendEmail({ to: user.email, ...emailContent }).catch((err) => {
+    logger.error({ err }, "resend verification email failed to send");
+  });
+}
+
 export async function requestPasswordReset(email: string): Promise<void> {
   const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
   if (!user) return;

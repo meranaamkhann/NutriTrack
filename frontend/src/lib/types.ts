@@ -3,13 +3,14 @@ export type ServingUnit = "G" | "ML" | "PIECE" | "CUP" | "TBSP" | "TSP" | "OZ";
 export type ActivityLevel = "SEDENTARY" | "LIGHT" | "MODERATE" | "ACTIVE" | "VERY_ACTIVE";
 export type GoalType = "LOSE" | "MAINTAIN" | "GAIN";
 export type Sex = "MALE" | "FEMALE";
+export type UnitPref = "METRIC" | "IMPERIAL";
 
 export interface Profile {
   userId: string;
   dateOfBirth: string | null;
   sexForCalc: Sex | null;
   heightCm: string | null;
-  unitPref: "METRIC" | "IMPERIAL";
+  unitPref: UnitPref;
   timezone: string;
   activityLevel: ActivityLevel;
   goal: GoalType;

@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
-import { api } from "../lib/api";
-import type { DailyProgress } from "../lib/types";
+import { useState } from "react";
+import { useProgress } from "../lib/queries";
 import { EmptyState, Field, Input, PageHeader, Panel } from "../components/ui";
 import { PanelSkeleton } from "../components/Skeleton";
 
@@ -13,16 +12,9 @@ function daysAgo(n: number) {
 export function Progress() {
   const [from, setFrom] = useState(daysAgo(13));
   const [to, setTo] = useState(daysAgo(0));
-  const [data, setData] = useState<DailyProgress | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setLoading(true);
-    api
-      .get<DailyProgress>("/progress", { from, to })
-      .then(setData)
-      .finally(() => setLoading(false));
-  }, [from, to]);
+  const progressQuery = useProgress(from, to);
+  const data = progressQuery.data;
+  const loading = progressQuery.isLoading;
 
   const maxCalories = data ? Math.max(1, ...data.days.map((d) => d.totals.calories), ...data.days.map((d) => d.calorieTarget ?? 0)) : 1;
 

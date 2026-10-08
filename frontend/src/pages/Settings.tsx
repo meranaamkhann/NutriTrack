@@ -2,63 +2,71 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import type { ActivityLevel, GoalHistoryEntry, GoalType, Profile, Sex } from "../lib/types";
+import { useProfile, useCurrentGoal, useSaveProfile, useRecalculateGoals } from "../lib/queries";
+import type { ActivityLevel, GoalType, Profile, Sex, UnitPref } from "../lib/types";
 import { Button, ErrorText, Field, Input, PageHeader, Panel, Select } from "../components/ui";
 import { PanelSkeleton } from "../components/Skeleton";
 import { useToast } from "../lib/toast";
+import { cmToDisplay, displayToCm, heightUnitLabel, kgToDisplay, displayToKg, weightUnitLabel } from "../lib/units";
 
 const ACTIVITY_LEVELS: ActivityLevel[] = ["SEDENTARY", "LIGHT", "MODERATE", "ACTIVE", "VERY_ACTIVE"];
 const GOALS: GoalType[] = ["LOSE", "MAINTAIN", "GAIN"];
+const UNIT_PREFS: UnitPref[] = ["METRIC", "IMPERIAL"];
 
 export function Settings() {
   const { logout } = useAuth();
   const { push } = useToast();
   const navigate = useNavigate();
+  const profileQuery = useProfile();
+  const goalQuery = useCurrentGoal();
+  const saveProfileMutation = useSaveProfile();
+  const recalcMutation = useRecalculateGoals();
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [goal, setGoal] = useState<GoalHistoryEntry | null>(null);
   const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
 
+  // Local editable draft, synced from the query cache whenever it changes
+  // (e.g. after a save, or if another tab updated it) — but typing in the
+  // form doesn't fight with the cache the way editing query data directly
+  // would.
   useEffect(() => {
-    api.get<Profile>("/users/me").then(setProfile);
-    api.get<GoalHistoryEntry | null>("/users/me/goals/current").then(setGoal);
-  }, []);
+    if (profileQuery.data) setProfile(profileQuery.data);
+  }, [profileQuery.data]);
+
+  const goal = goalQuery.data ?? null;
 
   function set<K extends keyof Profile>(key: K, value: Profile[K]) {
     setProfile((p) => (p ? { ...p, [key]: value } : p));
   }
 
-  async function saveProfile(e: React.FormEvent) {
+  function saveProfile(e: React.FormEvent) {
     e.preventDefault();
     if (!profile) return;
     setError("");
-    setSaving(true);
-    try {
-      await api.put("/users/me", {
+    saveProfileMutation.mutate(
+      {
         dateOfBirth: profile.dateOfBirth || undefined,
         sexForCalc: profile.sexForCalc || undefined,
         heightCm: profile.heightCm ? Number(profile.heightCm) : undefined,
         activityLevel: profile.activityLevel,
         goal: profile.goal,
-        timezone: profile.timezone
-      });
-      push("success", "Profile saved.");
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not save profile");
-    } finally {
-      setSaving(false);
-    }
+        timezone: profile.timezone,
+        unitPref: profile.unitPref,
+        targetWeightKg: profile.targetWeightKg ? Number(profile.targetWeightKg) : undefined
+      },
+      {
+        onSuccess: () => push("success", "Profile saved."),
+        onError: (err) => setError(err instanceof ApiError ? err.message : "Could not save profile")
+      }
+    );
   }
 
-  async function recalc() {
+  function recalc() {
     setError("");
-    try {
-      const newGoal = await api.post<GoalHistoryEntry>("/users/me/goals/recalculate");
-      setGoal(newGoal);
-      push("success", "Goals recalculated from your latest profile and weight.");
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Add a weight entry and complete your profile first");
-    }
+    recalcMutation.mutate(undefined, {
+      onSuccess: () => push("success", "Goals recalculated from your latest profile and weight."),
+      onError: (err) =>
+        setError(err instanceof ApiError ? err.message : "Add a weight entry and complete your profile first")
+    });
   }
 
   async function downloadExport(format: "JSON" | "CSV") {
@@ -71,7 +79,7 @@ export function Settings() {
     }
   }
 
-  if (!profile) return <PanelSkeleton />;
+  if (profileQuery.isLoading || !profile) return <PanelSkeleton />;
 
   return (
     <div className="flex flex-col gap-6">
@@ -96,13 +104,28 @@ export function Settings() {
                 <option value="FEMALE">Female</option>
               </Select>
             </Field>
-            <Field label="Height (cm)">
+            <Field label="Units">
+              <Select
+                value={profile.unitPref}
+                onChange={(e) => set("unitPref", e.target.value as UnitPref)}
+              >
+                {UNIT_PREFS.map((u) => (
+                  <option key={u} value={u}>
+                    {u === "METRIC" ? "Metric (kg, cm)" : "Imperial (lb, in)"}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label={`Height (${heightUnitLabel(profile.unitPref)})`}>
               <Input
                 type="number"
-                min="90"
-                max="260"
-                value={profile.heightCm ?? ""}
-                onChange={(e) => set("heightCm", e.target.value)}
+                step="0.1"
+                min={cmToDisplay(90, profile.unitPref)}
+                max={cmToDisplay(260, profile.unitPref)}
+                value={profile.heightCm ? cmToDisplay(Number(profile.heightCm), profile.unitPref) : ""}
+                onChange={(e) =>
+                  set("heightCm", e.target.value ? String(displayToCm(Number(e.target.value), profile.unitPref)) : "")
+                }
               />
             </Field>
             <Field label="Timezone">
@@ -126,9 +149,24 @@ export function Settings() {
                 ))}
               </Select>
             </Field>
+            <Field label={`Target weight (${weightUnitLabel(profile.unitPref)}) — optional`}>
+              <Input
+                type="number"
+                step="0.1"
+                min={kgToDisplay(20, profile.unitPref)}
+                max={kgToDisplay(400, profile.unitPref)}
+                value={profile.targetWeightKg ? kgToDisplay(Number(profile.targetWeightKg), profile.unitPref) : ""}
+                onChange={(e) =>
+                  set(
+                    "targetWeightKg",
+                    e.target.value ? String(displayToKg(Number(e.target.value), profile.unitPref)) : null
+                  )
+                }
+              />
+            </Field>
           </div>
-          <Button type="submit" disabled={saving}>
-            {saving ? "Saving…" : "Save profile"}
+          <Button type="submit" disabled={saveProfileMutation.isPending}>
+            {saveProfileMutation.isPending ? "Saving…" : "Save profile"}
           </Button>
         </form>
       </Panel>
@@ -162,7 +200,7 @@ export function Settings() {
           most recent profile and weight entry, and never changes past days' targets.
         </p>
         <Button variant="secondary" onClick={recalc}>
-          Recalculate from latest profile & weight
+          {recalcMutation.isPending ? "Recalculating…" : "Recalculate from latest profile & weight"}
         </Button>
       </Panel>
 

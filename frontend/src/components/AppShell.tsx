@@ -10,6 +10,11 @@ const NAV_ITEMS = [
   { to: "/settings", label: "Settings" }
 ];
 
+// Kept off the mobile bottom tab bar (already at 6 items, which is the
+// practical ceiling before it gets cramped) — reachable there instead via
+// the "Quick add" button on the Today page.
+const DESKTOP_ONLY_NAV_ITEMS = [{ to: "/quick-add", label: "Quick add" }];
+
 export function AppShell() {
   const { logout } = useAuth();
 
@@ -23,6 +28,20 @@ export function AppShell() {
               key={item.to}
               to={item.to}
               end={item.end}
+              className={({ isActive }) =>
+                `rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  isActive ? "bg-pine-tint text-pine-dark" : "text-ink-soft hover:bg-paper"
+                }`
+              }
+            >
+              {item.label}
+            </NavLink>
+          ))}
+          <div className="my-2 border-t border-line" />
+          {DESKTOP_ONLY_NAV_ITEMS.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
               className={({ isActive }) =>
                 `rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                   isActive ? "bg-pine-tint text-pine-dark" : "text-ink-soft hover:bg-paper"

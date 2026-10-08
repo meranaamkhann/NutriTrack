@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { api, ApiError } from "../lib/api";
-import type { MealType, RecipeDetail as RecipeDetailType } from "../lib/types";
+import { ApiError } from "../lib/api";
+import { useDeleteRecipe, useLogRecipe, useRecipe } from "../lib/queries";
+import type { MealType } from "../lib/types";
 import { Button, ErrorText, Field, PageHeader, Panel, Select, Input } from "../components/ui";
 import { PanelSkeleton } from "../components/Skeleton";
 import { useToast } from "../lib/toast";
@@ -12,43 +13,33 @@ export function RecipeDetail() {
   const { push } = useToast();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [detail, setDetail] = useState<RecipeDetailType | null>(null);
   const [servingsConsumed, setServingsConsumed] = useState("1");
   const [meal, setMeal] = useState<MealType>("LUNCH");
   const [error, setError] = useState("");
-  const [logging, setLogging] = useState(false);
 
-  useEffect(() => {
-    if (!id) return;
-    api.get<RecipeDetailType>(`/recipes/${id}`).then(setDetail);
-  }, [id]);
+  const recipeQuery = useRecipe(id);
+  const logRecipe = useLogRecipe(id ?? "");
+  const deleteRecipe = useDeleteRecipe();
 
-  async function logIt(e: React.FormEvent) {
+  function logIt(e: React.FormEvent) {
     e.preventDefault();
-    if (!id) return;
     setError("");
-    setLogging(true);
-    try {
-      await api.post(`/recipes/${id}/log`, {
-        servingsConsumed: Number(servingsConsumed),
-        meal,
-        loggedAt: new Date().toISOString()
-      });
-      push("success", "Logged to today.");
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not log recipe");
-    } finally {
-      setLogging(false);
-    }
+    logRecipe.mutate(
+      { servingsConsumed: Number(servingsConsumed), meal, loggedAt: new Date().toISOString() },
+      {
+        onSuccess: () => push("success", "Logged to today."),
+        onError: (err) => setError(err instanceof ApiError ? err.message : "Could not log recipe")
+      }
+    );
   }
 
-  async function deleteRecipe() {
+  function removeRecipe() {
     if (!id) return;
-    await api.delete(`/recipes/${id}`);
-    navigate("/recipes");
+    deleteRecipe.mutate(id, { onSuccess: () => navigate("/recipes") });
   }
 
-  if (!detail) return <PanelSkeleton />;
+  if (recipeQuery.isLoading || !recipeQuery.data) return <PanelSkeleton />;
+  const detail = recipeQuery.data;
 
   return (
     <div>
@@ -115,14 +106,14 @@ export function RecipeDetail() {
               </Select>
             </Field>
           </div>
-          <Button type="submit" disabled={logging}>
-            {logging ? "Logging…" : "Log to today"}
+          <Button type="submit" disabled={logRecipe.isPending}>
+            {logRecipe.isPending ? "Logging…" : "Log to today"}
           </Button>
         </form>
       </Panel>
 
-      <Button variant="danger" onClick={deleteRecipe}>
-        Delete recipe
+      <Button variant="danger" onClick={removeRecipe} disabled={deleteRecipe.isPending}>
+        {deleteRecipe.isPending ? "Deleting…" : "Delete recipe"}
       </Button>
     </div>
   );
