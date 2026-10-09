@@ -35,8 +35,6 @@ export async function registerUser(email: string, password: string) {
 
   const emailContent = verificationEmail(verifyToken);
   await sendEmail({ to: user.email, ...emailContent }).catch((err) => {
-    // Don't fail registration just because delivery failed — the account
-    // is still created; ops should alert on this log line separately.
     logger.error({ err }, "verification email failed to send");
   });
 
@@ -137,9 +135,6 @@ export async function revokeRefreshFamily(presentedToken: string): Promise<void>
 
 export async function resendVerificationEmail(email: string): Promise<void> {
   const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-  // Same no-enumeration shape as password reset: silent no-op if the email
-  // doesn't exist, or if it's already verified — the caller gets the same
-  // generic response either way.
   if (!user || user.emailVerified) return;
 
   const verifyToken = generateOpaqueToken();
