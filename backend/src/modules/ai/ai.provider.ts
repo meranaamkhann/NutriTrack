@@ -9,8 +9,6 @@ export interface AiProvider {
   parseFoodText(rawText: string): Promise<unknown>;
 }
 
-// Used when no ANTHROPIC_API_KEY is configured, so the app still runs (and
-// the review-before-commit UI still works, just with nothing pre-filled).
 export class StubAiProvider implements AiProvider {
   async parseFoodText(_rawText: string): Promise<unknown> {
     return { items: [] };
@@ -27,10 +25,6 @@ Rules:
 - If nothing food-related is in the text, respond {"items":[]}.
 - Never include any text outside the JSON object.`;
 
-// The model's raw text response is untrusted input from here on — it is
-// parsed as JSON defensively and the RESULT is re-validated by
-// aiParsedOutputSchema in parseAndValidate below regardless of what this
-// returns. This function never executes, stores, or trusts the text itself.
 export class AnthropicAiProvider implements AiProvider {
   constructor(private apiKey: string) {}
 

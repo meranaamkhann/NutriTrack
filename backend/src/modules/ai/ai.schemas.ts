@@ -6,8 +6,6 @@ export const parseRequestSchema = z.object({
   })
 });
 
-// Bounds the model (or any provider) is allowed to return. Anything outside
-// this is rejected before it is even shown to the user for review.
 export const aiFoodItemSchema = z.object({
   name: z.string().trim().min(1).max(120),
   quantity: z.number().positive().max(10000),
