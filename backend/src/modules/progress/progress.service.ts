@@ -61,8 +61,6 @@ export async function getDailyProgress(userId: string, from: Date, to: Date) {
   const days = [...byDate.entries()]
     .sort(([a], [b]) => (a < b ? -1 : 1))
     .map(([date, totals]) => {
-      // Compare by calendar day, not exact timestamp: a goal calculated at
-      // 5pm today must still apply when rolling up today's totals.
       const applicableGoal = [...goalRows]
         .reverse()
         .find((g) => g.effectiveFrom.toISOString().slice(0, 10) <= date);
