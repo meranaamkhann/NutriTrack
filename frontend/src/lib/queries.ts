@@ -12,9 +12,6 @@ import type {
   RecipeDetail,
   Weight
 } from "./types";
-
-// Centralized query keys so invalidation targets are consistent everywhere
-// a mutation needs to say "this data may now be stale."
 export const qk = {
   profile: ["profile"] as const,
   currentGoal: ["goals", "current"] as const,
@@ -75,8 +72,6 @@ export function useProgress(from: string, to: string) {
     queryFn: () => api.get<DailyProgress>("/progress", { from, to })
   });
 }
-
-// --- Mutations -------------------------------------------------------
 
 export function useCreateLog() {
   const qc = useQueryClient();

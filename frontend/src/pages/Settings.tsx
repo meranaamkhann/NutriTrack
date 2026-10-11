@@ -23,11 +23,6 @@ export function Settings() {
   const recalcMutation = useRecalculateGoals();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [error, setError] = useState("");
-
-  // Local editable draft, synced from the query cache whenever it changes
-  // (e.g. after a save, or if another tab updated it) — but typing in the
-  // form doesn't fight with the cache the way editing query data directly
-  // would.
   useEffect(() => {
     if (profileQuery.data) setProfile(profileQuery.data);
   }, [profileQuery.data]);

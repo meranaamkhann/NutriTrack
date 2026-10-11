@@ -46,9 +46,6 @@ export function QuickAdd() {
     if (!requestId) return;
     setError("");
     acceptMutation.mutate(items, {
-      // The mutation hook already invalidates the logs query cache on
-      // success, so Today reflects these as soon as it's visited — without
-      // that, Today would keep showing its last-cached (pre-AI-add) logs.
       onSuccess: () => navigate("/"),
       onError: (err) => setError(err instanceof ApiError ? err.message : "Could not save these entries")
     });

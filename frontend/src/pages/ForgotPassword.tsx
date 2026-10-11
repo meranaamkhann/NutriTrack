@@ -15,8 +15,6 @@ export function ForgotPassword() {
     setLoading(true);
     try {
       await api.post("/auth/password-reset/request", { email });
-      // Always show the same success state regardless of whether the email
-      // exists — matches the backend's no-enumeration response.
       setSent(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong");

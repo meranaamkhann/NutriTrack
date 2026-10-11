@@ -10,9 +10,6 @@ const NAV_ITEMS = [
   { to: "/settings", label: "Settings" }
 ];
 
-// Kept off the mobile bottom tab bar (already at 6 items, which is the
-// practical ceiling before it gets cramped) — reachable there instead via
-// the "Quick add" button on the Today page.
 const DESKTOP_ONLY_NAV_ITEMS = [{ to: "/quick-add", label: "Quick add" }];
 
 export function AppShell() {

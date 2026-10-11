@@ -19,8 +19,6 @@ const MEAL_LABELS: Record<MealType, string> = {
   CUSTOM: "Other"
 };
 
-// A reasonable default so the meal selector doesn't always start on
-// Breakfast regardless of when you're actually logging something.
 function defaultMealForNow(): MealType {
   const hour = new Date().getHours();
   if (hour < 11) return "BREAKFAST";
@@ -230,9 +228,6 @@ function AddFoodForm({ onAdded }: { onAdded: () => void }) {
   const createLog = useCreateLog();
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  // Debounced separately from `query` so the input stays instantly
-  // responsive while the network request only fires 200ms after typing
-  // stops — each keystroke cancels the previous pending fetch.
   function onQueryChange(value: string) {
     setQuery(value);
     setSelected(null);
