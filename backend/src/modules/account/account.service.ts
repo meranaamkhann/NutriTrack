@@ -19,10 +19,6 @@ import {
 import { AppError } from "../../utils/AppError.js";
 import { verifyCurrentPassword } from "../auth/auth.service.js";
 
-// Deletion order matters: recipe ingredients before recipes before owned
-// foods (Food has ON DELETE RESTRICT from RecipeIngredient), everything
-// else is independent. Done explicitly rather than relying solely on
-// cascade so the exact deletion contract is visible and testable.
 export async function deleteAccount(userId: string, password: string): Promise<void> {
   const passwordOk = await verifyCurrentPassword(userId, password);
   if (!passwordOk) throw new AppError("UNAUTHORIZED", "Incorrect password");

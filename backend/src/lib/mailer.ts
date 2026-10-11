@@ -23,12 +23,9 @@ interface SendEmailInput {
 export async function sendEmail(input: SendEmailInput): Promise<void> {
   if (!transporter) {
     if (isProd) {
-      // Fail loudly in production rather than silently dropping a
-      // verification or password-reset email the user is waiting on.
       throw new Error("SMTP is not configured (SMTP_HOST/SMTP_USER/SMTP_PASSWORD missing)");
     }
     logger.info({ to: input.to, subject: input.subject }, "dev mode: email not sent, logging instead");
-    // eslint-disable-next-line no-console
     console.log(`\n--- DEV EMAIL to ${input.to} ---\n${input.subject}\n\n${input.text}\n---\n`);
     return;
   }
