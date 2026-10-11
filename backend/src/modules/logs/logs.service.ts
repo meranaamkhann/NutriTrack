@@ -15,9 +15,6 @@ interface CreateLogInput {
   loggedAt: Date;
   idempotencyKey?: string;
 }
-
-// Postgres unique_violation code, checked below to turn a racing concurrent
-// insert into "return the row that won" rather than a 500 or a duplicate.
 const UNIQUE_VIOLATION = "23505";
 
 function isUniqueViolation(err: unknown): boolean {
@@ -25,15 +22,6 @@ function isUniqueViolation(err: unknown): boolean {
 }
 
 export async function createFoodLog(userId: string, input: CreateLogInput) {
-  // Every log write is deduplicated at the DATABASE level via a unique
-  // constraint on (userId, idempotencyKey) — never by a select-then-insert
-  // check, which is a TOCTOU race under concurrent requests (two rapid
-  // duplicate submissions can both pass a "does this exist yet?" check
-  // before either has committed its insert). When the client doesn't supply
-  // a key, one is derived deterministically from the log's own content plus
-  // a 5-second time bucket, so two concurrent duplicate requests hash to the
-  // same key and the second one's insert collides against the constraint
-  // instead of creating a second row.
   const idempotencyKey =
     input.idempotencyKey ??
     createHash("sha256")
