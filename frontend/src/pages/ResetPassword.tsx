@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, ApiError } from "../lib/api";
-import { Button, ErrorText, Field, Input } from "../components/ui";
+import { AuthLayout } from "../components/AuthLayout";
+import { PasswordInput } from "../components/PasswordInput";
+import { PasswordStrength } from "../components/PasswordStrength";
+import { Button, ErrorText, Field } from "../components/ui";
 
 export function ResetPassword() {
   const [params] = useSearchParams();
@@ -27,46 +30,36 @@ export function ResetPassword() {
     }
   }
 
+  if (!token) {
+    return (
+      <AuthLayout title="Link not valid">
+        <p className="text-sm text-ink-soft">This link is missing its reset token.</p>
+        <Link to="/forgot-password" className="mt-4 inline-block text-sm font-medium text-pine">
+          Request a new link
+        </Link>
+      </AuthLayout>
+    );
+  }
+  if (done) {
+    return (
+      <AuthLayout title="Password updated" subtitle="Taking you to the login page…">
+        <span />
+      </AuthLayout>
+    );
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <div className="font-display mb-8 text-center text-xl font-semibold text-pine-dark">NutriTrack</div>
-        <div className="rounded-lg border border-line bg-white p-6">
-          {!token ? (
-            <div className="flex flex-col gap-4 text-center">
-              <p className="text-sm text-ink-soft">
-                This link is missing its reset token. Request a new one from the login page.
-              </p>
-              <Link to="/forgot-password" className="text-sm font-medium text-pine">
-                Request a new link
-              </Link>
-            </div>
-          ) : done ? (
-            <div className="flex flex-col gap-4 text-center">
-              <h1 className="font-display text-lg font-semibold text-ink">Password updated</h1>
-              <p className="text-sm text-ink-soft">Taking you to the login page…</p>
-            </div>
-          ) : (
-            <form onSubmit={submit} className="flex flex-col gap-4">
-              <h1 className="font-display text-lg font-semibold text-ink">Set a new password</h1>
-              <ErrorText>{error}</ErrorText>
-              <Field label="New password">
-                <Input
-                  type="password"
-                  required
-                  minLength={10}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                />
-              </Field>
-              <p className="text-xs text-ink-soft">At least 10 characters, with a letter and a number.</p>
-              <Button type="submit" disabled={loading}>
-                {loading ? "Updating…" : "Update password"}
-              </Button>
-            </form>
-          )}
-        </div>
-      </div>
-    </div>
+    <AuthLayout title="Set a new password">
+      <form onSubmit={submit} className="flex flex-col gap-4">
+        <ErrorText>{error}</ErrorText>
+        <Field label="New password">
+          <PasswordInput required minLength={10} autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+        </Field>
+        <PasswordStrength password={newPassword} />
+        <Button type="submit" disabled={loading}>
+          {loading ? "Updating…" : "Update password"}
+        </Button>
+      </form>
+    </AuthLayout>
   );
 }

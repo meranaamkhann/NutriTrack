@@ -7,6 +7,7 @@ export type UnitPref = "METRIC" | "IMPERIAL";
 
 export interface Profile {
   userId: string;
+  displayName: string | null;
   dateOfBirth: string | null;
   sexForCalc: Sex | null;
   heightCm: string | null;
@@ -19,6 +20,7 @@ export interface Profile {
 
 export interface GoalHistoryEntry {
   id: string;
+  source: "CALCULATED" | "MANUAL";
   calculatedBmr: string;
   calculatedTdee: string;
   calorieTarget: string;
@@ -95,4 +97,59 @@ export interface AiParsedItem {
   estimatedProteinG: number;
   estimatedCarbG: number;
   estimatedFatG: number;
+}
+
+export interface AccountInfo {
+  id: string;
+  email: string;
+  emailVerified: boolean;
+  createdAt: string;
+  role: "USER" | "ADMIN";
+}
+
+export interface DiaryEntry {
+  id: string;
+  kind: "FOOD" | "RECIPE";
+  name: string;
+  amount: number;
+  unit: ServingUnit | "SERVING";
+  calories: number;
+  proteinG: number;
+  carbG: number;
+  fatG: number;
+  meal: MealType;
+  loggedAt: string;
+  source: "MANUAL" | "AI_ESTIMATED";
+}
+
+export interface DiaryGoal {
+  calorieTarget: number;
+  proteinGTarget: number;
+  carbGTarget: number;
+  fatGTarget: number;
+  source: "CALCULATED" | "MANUAL";
+  effectiveFrom: string;
+}
+
+export interface Diary {
+  date: string;
+  entries: DiaryEntry[];
+  goal: DiaryGoal | null;
+}
+
+export interface GoalPreview {
+  bmr: number;
+  tdee: number;
+  calorieTarget: number;
+  proteinG: number;
+  carbG: number;
+  fatG: number;
+}
+
+export interface SessionInfo {
+  id: string;
+  device: string;
+  ip: string | null;
+  lastActiveAt: string;
+  current: boolean;
 }

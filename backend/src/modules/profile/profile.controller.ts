@@ -26,3 +26,21 @@ export const getGoalsForDate = asyncHandler(async (req, res) => {
   const goals = await service.getGoalsForDate(req.user!.id, date);
   res.status(200).json(goals);
 });
+
+export const previewGoals = asyncHandler(async (req, res) => {
+  res.status(200).json(service.previewGoals(req.body));
+});
+
+export const completeSetup = asyncHandler(async (req, res) => {
+  const result = await service.completeSetup(req.user!.id, req.body);
+  res.status(201).json(result);
+});
+
+export const setManualGoal = asyncHandler(async (req, res) => {
+  const goal = await service.setManualGoal(req.user!.id, req.body);
+  res.status(201).json(goal);
+});
+
+export const listGoalHistory = asyncHandler(async (req, res) => {
+  res.status(200).json(await service.listGoalHistory(req.user!.id));
+});

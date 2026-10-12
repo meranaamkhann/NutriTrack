@@ -65,7 +65,7 @@ async function request<T>(path: string, opts: RequestOptions = {}, isRetry = fal
     body: opts.body ? JSON.stringify(opts.body) : undefined
   });
 
-  if (res.status === 401 && !isRetry) {
+  if (res.status === 401 && !isRetry && !path.startsWith("/auth/")) {
     const refreshed = await tryRefresh();
     if (refreshed) return request<T>(path, opts, true);
   }

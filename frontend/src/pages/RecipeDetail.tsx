@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { loggedAtFor, todayString } from "../lib/dates";
 import { ApiError } from "../lib/api";
 import { useDeleteRecipe, useLogRecipe, useRecipe } from "../lib/queries";
 import type { MealType } from "../lib/types";
@@ -25,9 +26,9 @@ export function RecipeDetail() {
     e.preventDefault();
     setError("");
     logRecipe.mutate(
-      { servingsConsumed: Number(servingsConsumed), meal, loggedAt: new Date().toISOString() },
+      { servingsConsumed: Number(servingsConsumed), meal, loggedAt: loggedAtFor(todayString()), loggedDate: todayString() },
       {
-        onSuccess: () => push("success", "Logged to today."),
+        onSuccess: () => push("success", "Added to today's diary."),
         onError: (err) => setError(err instanceof ApiError ? err.message : "Could not log recipe")
       }
     );
@@ -107,8 +108,11 @@ export function RecipeDetail() {
             </Field>
           </div>
           <Button type="submit" disabled={logRecipe.isPending}>
-            {logRecipe.isPending ? "Logging…" : "Log to today"}
+            {logRecipe.isPending ? "Logging…" : "Add to today's diary"}
           </Button>
+          <p className="text-xs text-ink-soft">
+            Need another day? Use <Link to="/" className="font-medium text-pine">the Diary</Link>, pick the day, and add it from the Recipes tab.
+          </p>
         </form>
       </Panel>
 

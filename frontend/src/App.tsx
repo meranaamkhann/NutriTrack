@@ -14,6 +14,7 @@ import { Weight } from "./pages/Weight";
 import { Progress } from "./pages/Progress";
 import { Settings } from "./pages/Settings";
 import { QuickAdd } from "./pages/QuickAdd";
+import { Setup } from "./pages/Setup";
 
 function ProtectedRoutes() {
   const { status } = useAuth();
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="/progress" element={<Progress />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/quick-add" element={<QuickAdd />} />
+        <Route path="/setup" element={<Setup />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

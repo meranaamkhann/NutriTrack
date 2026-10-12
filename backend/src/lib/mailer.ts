@@ -23,9 +23,12 @@ interface SendEmailInput {
 export async function sendEmail(input: SendEmailInput): Promise<void> {
   if (!transporter) {
     if (isProd) {
+      // Fail loudly in production rather than silently dropping a
+      // verification or password-reset email the user is waiting on.
       throw new Error("SMTP is not configured (SMTP_HOST/SMTP_USER/SMTP_PASSWORD missing)");
     }
     logger.info({ to: input.to, subject: input.subject }, "dev mode: email not sent, logging instead");
+    // eslint-disable-next-line no-console
     console.log(`\n--- DEV EMAIL to ${input.to} ---\n${input.subject}\n\n${input.text}\n---\n`);
     return;
   }
@@ -48,5 +51,21 @@ export function passwordResetEmail(token: string) {
     subject: "Reset your NutriTrack password",
     text: `Reset your password: ${link}\n\nThis link expires in 1 hour. If you didn't request this, you can ignore this email.`,
     html: `<p>Reset your password by clicking the link below.</p><p><a href="${link}">${link}</a></p><p>This link expires in 1 hour. If you didn't request this, you can ignore this email.</p>`
+  };
+}
+
+export function passwordChangedEmail() {
+  return {
+    subject: "Your NutriTrack password was changed",
+    text: "Your NutriTrack password was just changed and other devices were signed out.\n\nIf this wasn't you, reset your password immediately from the login page.",
+    html: "<p>Your NutriTrack password was just changed and other devices were signed out.</p><p>If this wasn't you, reset your password immediately from the login page.</p>"
+  };
+}
+
+export function emailChangedNoticeEmail(newEmail: string) {
+  return {
+    subject: "Your NutriTrack email address was changed",
+    text: `The email on your NutriTrack account was changed to ${newEmail}.\n\nIf this wasn't you, contact support and reset your password right away.`,
+    html: `<p>The email on your NutriTrack account was changed to <strong>${newEmail}</strong>.</p><p>If this wasn't you, contact support and reset your password right away.</p>`
   };
 }

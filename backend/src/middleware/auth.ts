@@ -7,7 +7,7 @@ import { users } from "../db/schema.js";
 
 declare module "express-serve-static-core" {
   interface Request {
-    user?: { id: string; role: "USER" | "ADMIN" };
+    user?: { id: string; role: "USER" | "ADMIN"; sessionId?: string };
   }
 }
 
@@ -27,7 +27,7 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
       .limit(1);
     if (!user) throw new AppError("UNAUTHORIZED", "Invalid session");
 
-    req.user = { id: user.id, role: user.role };
+    req.user = { id: user.id, role: user.role, sessionId: payload.sid };
     next();
   } catch {
     next(new AppError("UNAUTHORIZED", "Invalid or expired access token"));

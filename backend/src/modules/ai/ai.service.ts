@@ -3,6 +3,7 @@ import { db } from "../../db/client.js";
 import { aiParseRequests, foods, foodLogs, profiles } from "../../db/schema.js";
 import { AppError } from "../../utils/AppError.js";
 import { localDateInTimezone } from "../../lib/timezone.js";
+import { parseLocalDate } from "../../lib/dates.js";
 import { buildAiProvider, parseAndValidate } from "./ai.provider.js";
 import { env } from "../../config/env.js";
 
@@ -42,6 +43,7 @@ interface AcceptedItem {
   estimatedCarbG: number;
   estimatedFatG: number;
   loggedAt: Date;
+  loggedDate?: string;
 }
 
 export async function acceptParse(userId: string, requestId: string, items: AcceptedItem[]) {
@@ -88,7 +90,7 @@ export async function acceptParse(userId: string, requestId: string, items: Acce
           servingUnitSnapshot: item.unit,
           quantity: item.quantity,
           meal: item.meal,
-          loggedDate: localDateInTimezone(item.loggedAt, timezone),
+          loggedDate: item.loggedDate ? parseLocalDate(item.loggedDate) : localDateInTimezone(item.loggedAt, timezone),
           loggedAt: item.loggedAt,
           entrySource: "AI_ESTIMATED"
         })

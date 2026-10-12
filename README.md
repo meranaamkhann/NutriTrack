@@ -3,6 +3,64 @@
 A full-stack calorie & nutrition tracker: Node/TypeScript/Express/Drizzle/PostgreSQL backend,
 React/TypeScript/Vite/Tailwind frontend.
 
+## Fourth pass: the "something feels off and incomplete" round
+
+The feedback was a feeling, not a bug report, so this pass started by reading
+the code for what a real nutrition tracker does that this one didn't, and
+**reproducing each suspicion with a test before fixing it**:
+
+- **Logged recipes never appeared on Today.** Logging a recipe wrote to
+  `recipe_logs`; Today read only `food_logs`. The page said "Logged to today"
+  and then showed nothing, while Progress *did* count it (the probe showed
+  Today = 0 entries, Progress = 130 kcal for the same meal). **Fixed** with a
+  unified `/diary` endpoint that returns foods and recipes together, with
+  edit and delete for both.
+- **A 24-hour time bomb.** "A log can't be in the future" was computed once at
+  server start, so after about a day of uptime *every* new log would have been
+  rejected. Reproduced by simulating a 3-day-old server. **Fixed**: bounds are
+  evaluated per request.
+- **No way to set a target.** The ring showed an empty circle and nothing
+  pointed anywhere. **Fixed**: a 3-step setup wizard (about you, goal, review)
+  that shows the calculation and lets you accept it or type your own number;
+  manual targets in Settings; target history. Registration now lands in it.
+- **The diary only ever showed today.** Added day navigation (previous / next
+  / pick a date), and logging to the day you're viewing. Added per-meal
+  sections with subtotals, per-entry macros, units on every amount (it said
+  "100", not "100 g"), recent foods for one-tap re-logging, and adding recipes
+  from the same panel.
+- **Inputs with their own `className` lost their border and padding** (search
+  bar, quantity boxes, inline edit). Fixed.
+- **A real race in the new wizard, found by its test**: pre-fill from saved
+  data could land after you'd started typing and blank your input.
+- **Look and feel**: logo, nav icons, a deep-green summary card with
+  macro-coloured bars, a brand panel on the sign-in screens, account chip,
+  mobile tab bar with icons.
+- **Account & security**: eye toggles on every password field, a strength
+  meter, change password (signs out other devices), change email (notifies the
+  old address), active devices with sign-out, email-verification banner with
+  resend, and login lockout (5 wrong passwords, 15 minutes, same response as a
+  wrong password so it can't be used to find accounts).
+
+Testing: `cd backend && npm test` (74 tests, needs Postgres) and
+`cd frontend && npm test` (34 tests; mounts the real pages against a mocked
+API and drives them: add to a past day, remove with rollback, the wizard, the
+password flows). **Not covered:** I could not run a real browser in the build
+environment, so visual layout/spacing, the native date picker, and
+mobile-viewport behaviour are unverified. Please eyeball those.
+
+### Upgrading an existing local copy
+
+Copy over `backend/src`, `backend/tests`, `backend/drizzle` (a new migration
+adds columns and relaxes two constraints; it is additive and keeps your data),
+`frontend/src`, `frontend/tests`, `frontend/package.json` and
+`frontend/vite.config.ts`. **Do not overwrite your `backend/.env`** (add
+`RATE_LIMIT_ACCOUNT_MAX=10` if you like; it has a default). Then:
+
+```
+cd backend  && npm install && npm run db:migrate && npm run dev
+cd frontend && npm install && npm run dev
+```
+
 ## Third pass: closing the "doesn't feel like a standard app" gap
 
 A user reported the app felt laggy and didn't match conventions they expect

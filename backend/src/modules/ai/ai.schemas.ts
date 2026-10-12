@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { instantNotFarFuture, loggableDateString } from "../../lib/dates.js";
 
 export const parseRequestSchema = z.object({
   body: z.object({
@@ -6,6 +7,8 @@ export const parseRequestSchema = z.object({
   })
 });
 
+// Bounds the model (or any provider) is allowed to return. Anything outside
+// this is rejected before it is even shown to the user for review.
 export const aiFoodItemSchema = z.object({
   name: z.string().trim().min(1).max(120),
   quantity: z.number().positive().max(10000),
@@ -27,7 +30,8 @@ export const acceptParseSchema = z.object({
     items: z
       .array(
         aiFoodItemSchema.extend({
-          loggedAt: z.coerce.date().max(new Date(Date.now() + 24 * 60 * 60 * 1000))
+          loggedAt: instantNotFarFuture,
+          loggedDate: loggableDateString.optional()
         })
       )
       .min(1)

@@ -253,7 +253,7 @@ describe("account deletion requires re-authentication", () => {
       .delete("/account/me")
       .set("Authorization", `Bearer ${a.token}`)
       .send({ password: "definitely-wrong-1" });
-    expect(wrongPassword.status).toBe(401);
+    expect(wrongPassword.status).toBe(403);
 
     const stillWorks = await request(app).get("/users/me").set("Authorization", `Bearer ${a.token}`);
     expect(stillWorks.status).toBe(200);

@@ -9,6 +9,10 @@ function keyByUserOrIp(req: Request): string {
   return req.user?.id ?? ipKeyGenerator(req.ip ?? "unknown");
 }
 
+// A single shared Redis-backed store when REDIS_URL is set, so rate limits
+// are enforced correctly across multiple server instances. Falls back to
+// express-rate-limit's in-memory store for a single-instance/dev setup —
+// still correct there, just not shared across processes.
 const redisClient = env.REDIS_URL ? new Redis(env.REDIS_URL, { lazyConnect: true }) : null;
 
 if (redisClient) {
@@ -56,6 +60,15 @@ export const aiParseLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   store: sharedStore("ai-parse")
+});
+
+export const accountSensitiveLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: env.RATE_LIMIT_ACCOUNT_MAX,
+  keyGenerator: keyByUserOrIp,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: sharedStore("account")
 });
 
 export const exportLimiter = rateLimit({

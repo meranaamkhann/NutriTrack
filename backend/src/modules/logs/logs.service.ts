@@ -4,6 +4,7 @@ import { db } from "../../db/client.js";
 import { foodLogs, foods, profiles } from "../../db/schema.js";
 import { AppError } from "../../utils/AppError.js";
 import { localDateInTimezone } from "../../lib/timezone.js";
+import { parseLocalDate } from "../../lib/dates.js";
 
 type MealType = (typeof foodLogs.$inferSelect)["meal"];
 
@@ -13,8 +14,12 @@ interface CreateLogInput {
   meal: MealType;
   customMealLabel?: string;
   loggedAt: Date;
+  loggedDate?: string;
   idempotencyKey?: string;
 }
+
+// Postgres unique_violation code, checked below to turn a racing concurrent
+// insert into "return the row that won" rather than a 500 or a duplicate.
 const UNIQUE_VIOLATION = "23505";
 
 function isUniqueViolation(err: unknown): boolean {
@@ -22,10 +27,19 @@ function isUniqueViolation(err: unknown): boolean {
 }
 
 export async function createFoodLog(userId: string, input: CreateLogInput) {
+  // Every log write is deduplicated at the DATABASE level via a unique
+  // constraint on (userId, idempotencyKey) — never by a select-then-insert
+  // check, which is a TOCTOU race under concurrent requests (two rapid
+  // duplicate submissions can both pass a "does this exist yet?" check
+  // before either has committed its insert). When the client doesn't supply
+  // a key, one is derived deterministically from the log's own content plus
+  // a 5-second time bucket, so two concurrent duplicate requests hash to the
+  // same key and the second one's insert collides against the constraint
+  // instead of creating a second row.
   const idempotencyKey =
     input.idempotencyKey ??
     createHash("sha256")
-      .update(`${userId}:${input.foodId}:${input.quantity}:${input.meal}:${Math.floor(Date.now() / 5000)}`)
+      .update(`${userId}:${input.foodId}:${input.quantity}:${input.meal}:${input.loggedDate ?? ""}:${Math.floor(Date.now() / 5000)}`)
       .digest("hex");
 
   const food = await lookUpAccessibleFood(userId, input.foodId);
@@ -48,7 +62,7 @@ export async function createFoodLog(userId: string, input: CreateLogInput) {
         quantity: input.quantity,
         meal: input.meal,
         customMealLabel: input.customMealLabel,
-        loggedDate: localDateInTimezone(input.loggedAt, timezone),
+        loggedDate: input.loggedDate ? parseLocalDate(input.loggedDate) : localDateInTimezone(input.loggedAt, timezone),
         loggedAt: input.loggedAt,
         entrySource: "MANUAL",
         idempotencyKey

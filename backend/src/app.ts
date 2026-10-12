@@ -17,6 +17,7 @@ import { progressRouter } from "./modules/progress/progress.routes.js";
 import { exportRouter } from "./modules/export/export.routes.js";
 import { accountRouter } from "./modules/account/account.routes.js";
 import { adminRouter } from "./modules/account/admin.routes.js";
+import { diaryRouter } from "./modules/diary/diary.routes.js";
 import { aiParseLimiter } from "./middleware/rateLimit.js";
 import { requireAuth } from "./middleware/auth.js";
 import { validate } from "./middleware/validate.js";
@@ -45,6 +46,7 @@ export function buildApp() {
   app.use("/users", profileRouter);
   app.use("/foods", foodsRouter);
   app.use("/logs", logsRouter);
+  app.use("/diary", diaryRouter);
   app.use("/weights", weightsRouter);
   app.use("/recipes", recipesRouter);
   app.use("/progress", progressRouter);

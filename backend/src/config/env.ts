@@ -17,6 +17,7 @@ const schema = z.object({
   RATE_LIMIT_LOGIN_MAX: z.coerce.number().int().positive().default(10),
   RATE_LIMIT_REGISTER_MAX: z.coerce.number().int().positive().default(5),
   RATE_LIMIT_PASSWORD_RESET_MAX: z.coerce.number().int().positive().default(5),
+  RATE_LIMIT_ACCOUNT_MAX: z.coerce.number().int().positive().default(10),
   SMTP_HOST: z.string().optional().default(""),
   SMTP_PORT: z.coerce.number().int().positive().default(587),
   SMTP_USER: z.string().optional().default(""),

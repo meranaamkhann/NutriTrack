@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { instantNotFarFuture, loggableDateString } from "../../lib/dates.js";
 
 export const createRecipeSchema = z.object({
   body: z.object({
@@ -25,6 +26,7 @@ export const logRecipeSchema = z.object({
   body: z.object({
     servingsConsumed: z.number().positive().max(1000),
     meal: z.enum(["BREAKFAST", "LUNCH", "DINNER", "SNACK", "CUSTOM"]),
-    loggedAt: z.coerce.date().max(new Date(Date.now() + 24 * 60 * 60 * 1000))
+    loggedAt: instantNotFarFuture,
+    loggedDate: loggableDateString.optional()
   })
 });

@@ -35,6 +35,7 @@ export const entrySourceEnum = pgEnum("entry_source", ["MANUAL", "AI_ESTIMATED"]
 export const exportStatusEnum = pgEnum("export_status", ["PENDING", "READY", "EXPIRED", "FAILED"]);
 export const exportFormatEnum = pgEnum("export_format", ["JSON", "CSV"]);
 export const verificationPurposeEnum = pgEnum("verification_purpose", ["EMAIL_VERIFY", "PASSWORD_RESET"]);
+export const goalSourceEnum = pgEnum("goal_source", ["CALCULATED", "MANUAL"]);
 
 const id = () => uuid("id").primaryKey().$defaultFn(randomUUID);
 const timestamps = {
@@ -48,6 +49,8 @@ export const users = pgTable("users", {
   emailVerified: boolean("email_verified").notNull().default(false),
   passwordHash: text("password_hash").notNull(),
   role: roleEnum("role").notNull().default("USER"),
+  failedLoginAttempts: integer("failed_login_attempts").notNull().default(0),
+  lockedUntil: timestamp("locked_until", { withTimezone: true }),
   ...timestamps
 });
 
@@ -94,6 +97,7 @@ export const profiles = pgTable("profiles", {
   userId: uuid("user_id")
     .primaryKey()
     .references(() => users.id, { onDelete: "cascade" }),
+  displayName: text("display_name"),
   dateOfBirth: date("date_of_birth", { mode: "date" }),
   sexForCalc: sexEnum("sex_for_calc"),
   heightCm: numeric("height_cm", { precision: 6, scale: 2 }).$type<number>(),
@@ -112,17 +116,18 @@ export const goalsHistory = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    weightKg: numeric("weight_kg", { precision: 6, scale: 2 }).$type<number>().notNull(),
-    heightCm: numeric("height_cm", { precision: 6, scale: 2 }).$type<number>().notNull(),
-    activityLevel: activityLevelEnum("activity_level").notNull(),
-    goal: goalTypeEnum("goal").notNull(),
-    sexForCalc: sexEnum("sex_for_calc").notNull(),
-    calculatedBmr: numeric("calculated_bmr", { precision: 8, scale: 2 }).$type<number>().notNull(),
-    calculatedTdee: numeric("calculated_tdee", { precision: 8, scale: 2 }).$type<number>().notNull(),
+    weightKg: numeric("weight_kg", { precision: 6, scale: 2 }).$type<number>(),
+    heightCm: numeric("height_cm", { precision: 6, scale: 2 }).$type<number>(),
+    activityLevel: activityLevelEnum("activity_level"),
+    goal: goalTypeEnum("goal"),
+    sexForCalc: sexEnum("sex_for_calc"),
+    calculatedBmr: numeric("calculated_bmr", { precision: 8, scale: 2 }).$type<number>(),
+    calculatedTdee: numeric("calculated_tdee", { precision: 8, scale: 2 }).$type<number>(),
     calorieTarget: numeric("calorie_target", { precision: 8, scale: 2 }).$type<number>().notNull(),
     proteinGTarget: numeric("protein_g_target", { precision: 8, scale: 2 }).$type<number>().notNull(),
     carbGTarget: numeric("carb_g_target", { precision: 8, scale: 2 }).$type<number>().notNull(),
     fatGTarget: numeric("fat_g_target", { precision: 8, scale: 2 }).$type<number>().notNull(),
+    source: goalSourceEnum("source").notNull().default("CALCULATED"),
     effectiveFrom: timestamp("effective_from", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
   },

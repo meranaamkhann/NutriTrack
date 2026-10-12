@@ -1,6 +1,6 @@
 import argon2 from "argon2";
 import { randomUUID } from "node:crypto";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, sql } from "drizzle-orm";
 import { db } from "../../db/client.js";
 import { users, refreshTokens, verificationTokens } from "../../db/schema.js";
 import { AppError } from "../../utils/AppError.js";
@@ -10,7 +10,14 @@ import { sendEmail, verificationEmail, passwordResetEmail } from "../../lib/mail
 import { logger } from "../../lib/logger.js";
 import { env } from "../../config/env.js";
 
+export const MAX_FAILED_LOGINS = 5;
+export const LOCKOUT_MINUTES = 15;
+
 const ARGON2_OPTS = { type: argon2.argon2id, memoryCost: env.ARGON2_MEMORY_COST_KB, timeCost: env.ARGON2_TIME_COST, parallelism: 1 };
+
+export function hashPassword(password: string): Promise<string> {
+  return argon2.hash(password, ARGON2_OPTS);
+}
 
 export interface IssuedSession {
   accessToken: string;
@@ -35,6 +42,8 @@ export async function registerUser(email: string, password: string) {
 
   const emailContent = verificationEmail(verifyToken);
   await sendEmail({ to: user.email, ...emailContent }).catch((err) => {
+    // Don't fail registration just because delivery failed — the account
+    // is still created; ops should alert on this log line separately.
     logger.error({ err }, "verification email failed to send");
   });
 
@@ -70,8 +79,33 @@ export async function loginUser(
     throw genericError();
   }
 
+  // A locked account answers exactly like a wrong password (same message,
+  // same hashing work), so the lockout can't be used to find out which
+  // emails have accounts.
+  if (user.lockedUntil && user.lockedUntil > new Date()) {
+    await argon2.hash(password, ARGON2_OPTS);
+    throw genericError();
+  }
+
   const valid = await argon2.verify(user.passwordHash, password);
-  if (!valid) throw genericError();
+  if (!valid) {
+    const [updated] = await db
+      .update(users)
+      .set({ failedLoginAttempts: sql`${users.failedLoginAttempts} + 1` })
+      .where(eq(users.id, user.id))
+      .returning({ attempts: users.failedLoginAttempts });
+    if (updated && updated.attempts >= MAX_FAILED_LOGINS) {
+      await db
+        .update(users)
+        .set({ failedLoginAttempts: 0, lockedUntil: new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000) })
+        .where(eq(users.id, user.id));
+    }
+    throw genericError();
+  }
+
+  if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+    await db.update(users).set({ failedLoginAttempts: 0, lockedUntil: null }).where(eq(users.id, user.id));
+  }
 
   return issueSession(user.id, meta);
 }
@@ -81,7 +115,7 @@ export async function issueSession(
   meta: { userAgent?: string; ip?: string },
   familyId: string = randomUUID()
 ): Promise<IssuedSession> {
-  const accessToken = signAccessToken(userId);
+  const accessToken = signAccessToken(userId, familyId);
   const refreshToken = generateOpaqueToken();
   const refreshExpiresAt = new Date(Date.now() + env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
 
@@ -135,6 +169,9 @@ export async function revokeRefreshFamily(presentedToken: string): Promise<void>
 
 export async function resendVerificationEmail(email: string): Promise<void> {
   const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  // Same no-enumeration shape as password reset: silent no-op if the email
+  // doesn't exist, or if it's already verified — the caller gets the same
+  // generic response either way.
   if (!user || user.emailVerified) return;
 
   const verifyToken = generateOpaqueToken();

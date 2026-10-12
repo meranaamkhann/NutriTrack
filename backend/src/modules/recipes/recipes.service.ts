@@ -3,6 +3,7 @@ import { db } from "../../db/client.js";
 import { recipes, recipeIngredients, foods, recipeLogs, profiles } from "../../db/schema.js";
 import { AppError } from "../../utils/AppError.js";
 import { localDateInTimezone } from "../../lib/timezone.js";
+import { parseLocalDate } from "../../lib/dates.js";
 
 type MealType = (typeof recipeLogs.$inferSelect)["meal"];
 
@@ -93,7 +94,7 @@ export async function deleteRecipe(userId: string, recipeId: string) {
 export async function logRecipe(
   userId: string,
   recipeId: string,
-  input: { servingsConsumed: number; meal: MealType; loggedAt: Date }
+  input: { servingsConsumed: number; meal: MealType; loggedAt: Date; loggedDate?: string }
 ) {
   const { recipe, perServing } = await getRecipeWithNutrition(userId, recipeId);
   const [profile] = await db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1);
@@ -110,7 +111,9 @@ export async function logRecipe(
       fatGSnapshot: round2(perServing.fatG * input.servingsConsumed),
       servingsConsumed: input.servingsConsumed,
       meal: input.meal,
-      loggedDate: localDateInTimezone(input.loggedAt, profile?.timezone ?? "UTC"),
+      loggedDate: input.loggedDate
+        ? parseLocalDate(input.loggedDate)
+        : localDateInTimezone(input.loggedAt, profile?.timezone ?? "UTC"),
       loggedAt: input.loggedAt
     })
     .returning();

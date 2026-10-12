@@ -1,5 +1,9 @@
 import type { UnitPref } from "./types";
 
+// Mirrors the backend's conversion constants exactly (calc.service.ts) so
+// display-side rounding matches what the server would compute. The API
+// always stores and returns canonical metric (kg, cm) — these are purely
+// for presenting/collecting values in the unit the user's profile prefers.
 const KG_PER_LB = 0.45359237;
 const CM_PER_IN = 2.54;
 

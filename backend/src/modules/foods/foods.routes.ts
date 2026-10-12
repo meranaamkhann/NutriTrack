@@ -9,6 +9,7 @@ foodsRouter.use(requireAuth);
 
 foodsRouter.get("/", validate(searchFoodsSchema), ctrl.searchFoods);
 foodsRouter.post("/", validate(createFoodSchema), ctrl.createFood);
+foodsRouter.get("/recent", ctrl.recentFoods);
 foodsRouter.get("/:id", validate(foodIdParamSchema), ctrl.getFood);
 foodsRouter.put("/:id", validate(updateFoodSchema), ctrl.updateFood);
 foodsRouter.delete("/:id", validate(foodIdParamSchema), ctrl.deleteFood);

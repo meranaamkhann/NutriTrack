@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api, ApiError } from "../lib/api";
+import { AuthLayout } from "../components/AuthLayout";
 import { Button, ErrorText, Field, Input } from "../components/ui";
 
 export function ForgotPassword() {
@@ -23,41 +24,33 @@ export function ForgotPassword() {
     }
   }
 
+  if (sent) {
+    return (
+      <AuthLayout title="Check your email">
+        <p className="text-sm text-ink-soft">
+          If an account exists for <strong>{email}</strong>, a reset link is on its way. It expires in 1 hour.
+        </p>
+        <Link to="/login" className="mt-6 inline-block text-sm font-medium text-pine">
+          Back to login
+        </Link>
+      </AuthLayout>
+    );
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <div className="font-display mb-8 text-center text-xl font-semibold text-pine-dark">NutriTrack</div>
-        <div className="rounded-lg border border-line bg-white p-6">
-          {sent ? (
-            <div className="flex flex-col gap-4 text-center">
-              <h1 className="font-display text-lg font-semibold text-ink">Check your email</h1>
-              <p className="text-sm text-ink-soft">
-                If an account exists for {email}, a password reset link is on its way. It expires in 1 hour.
-              </p>
-              <Link to="/login" className="text-sm font-medium text-pine">
-                Back to login
-              </Link>
-            </div>
-          ) : (
-            <form onSubmit={submit} className="flex flex-col gap-4">
-              <h1 className="font-display text-lg font-semibold text-ink">Reset your password</h1>
-              <p className="text-sm text-ink-soft">Enter your email and we'll send you a reset link.</p>
-              <ErrorText>{error}</ErrorText>
-              <Field label="Email">
-                <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-              </Field>
-              <Button type="submit" disabled={loading}>
-                {loading ? "Sending…" : "Send reset link"}
-              </Button>
-              <p className="text-center text-sm text-ink-soft">
-                <Link to="/login" className="font-medium text-pine">
-                  Back to login
-                </Link>
-              </p>
-            </form>
-          )}
-        </div>
-      </div>
-    </div>
+    <AuthLayout title="Reset your password" subtitle="Enter your email and we'll send you a reset link.">
+      <form onSubmit={submit} className="flex flex-col gap-4">
+        <ErrorText>{error}</ErrorText>
+        <Field label="Email">
+          <Input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </Field>
+        <Button type="submit" disabled={loading}>
+          {loading ? "Sending…" : "Send reset link"}
+        </Button>
+        <Link to="/login" className="text-center text-sm font-medium text-pine">
+          Back to login
+        </Link>
+      </form>
+    </AuthLayout>
   );
 }

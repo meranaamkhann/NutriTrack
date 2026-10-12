@@ -25,3 +25,7 @@ export const getFood = asyncHandler(async (req, res) => {
   const food = await service.getFoodById(req.user!.id, req.params.id);
   res.status(200).json(food);
 });
+
+export const recentFoods = asyncHandler(async (req, res) => {
+  res.status(200).json(await service.recentFoods(req.user!.id));
+});

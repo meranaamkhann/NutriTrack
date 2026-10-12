@@ -1,6 +1,6 @@
-import { eq, and, or, isNull, ilike } from "drizzle-orm";
+import { eq, and, or, isNull, ilike, desc } from "drizzle-orm";
 import { db } from "../../db/client.js";
-import { foods, recipeIngredients } from "../../db/schema.js";
+import { foods, foodLogs, recipeIngredients } from "../../db/schema.js";
 import { AppError } from "../../utils/AppError.js";
 
 type FoodInsert = Omit<typeof foods.$inferInsert, "ownerId" | "source" | "verificationStatus">;
@@ -57,4 +57,26 @@ export async function getFoodById(userId: string, foodId: string) {
     throw new AppError("FORBIDDEN", "You do not have access to this food");
   }
   return food;
+}
+
+// Most recently logged distinct foods, newest first, so re-logging a staple
+// is one tap instead of a search.
+export async function recentFoods(userId: string, limit = 10) {
+  const rows = await db
+    .select({ food: foods })
+    .from(foodLogs)
+    .innerJoin(foods, eq(foodLogs.foodId, foods.id))
+    .where(and(eq(foodLogs.userId, userId), or(isNull(foods.ownerId), eq(foods.ownerId, userId))))
+    .orderBy(desc(foodLogs.loggedAt))
+    .limit(100);
+
+  const seen = new Set<string>();
+  const result = [];
+  for (const { food } of rows) {
+    if (seen.has(food.id)) continue;
+    seen.add(food.id);
+    result.push(food);
+    if (result.length >= limit) break;
+  }
+  return result;
 }

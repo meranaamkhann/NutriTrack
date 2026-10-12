@@ -1,12 +1,11 @@
 import { useState } from "react";
+import { addDays, todayString } from "../lib/dates";
 import { useProgress } from "../lib/queries";
 import { EmptyState, Field, Input, PageHeader, Panel } from "../components/ui";
 import { PanelSkeleton } from "../components/Skeleton";
 
 function daysAgo(n: number) {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
+  return addDays(todayString(), -n);
 }
 
 export function Progress() {

@@ -405,3 +405,90 @@ paths:
       responses:
         "200": { description: Updated }
         "403": { description: Not an admin }
+
+  /diary:
+    get:
+      summary: Everything eaten on one calendar day (foods AND recipes) plus the target in effect
+      parameters:
+        - { in: query, name: date, required: true, schema: { type: string, format: date, example: "2026-10-09" } }
+      responses:
+        "200": { description: "{ date, entries[], goal }" }
+        "400": { description: Not a real YYYY-MM-DD date }
+  /diary/recipe-logs/{id}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+    put:
+      summary: Change servings of a logged recipe (scaled from its own snapshot)
+      responses:
+        "200": { description: Updated }
+        "404": { description: Not found or not yours }
+    delete:
+      summary: Remove a logged recipe
+      responses:
+        "204": { description: Deleted }
+        "404": { description: Not found or not yours }
+  /foods/recent:
+    get:
+      summary: Most recently logged distinct foods, newest first
+      responses:
+        "200": { description: Foods }
+  /users/me/setup:
+    post:
+      summary: Onboarding in one call - profile, first weight and first target. Validates before writing anything.
+      responses:
+        "201": { description: "{ profile, goal }" }
+        "400": { description: Invalid details (nothing was saved) }
+  /users/me/goals/preview:
+    post:
+      summary: Calculate a target from the same body as /users/me/setup without saving
+      responses:
+        "200": { description: "{ bmr, tdee, calorieTarget, proteinG, carbG, fatG }" }
+  /users/me/goals/manual:
+    post:
+      summary: Set your own daily target (macros all-or-none; omitted = 30/40/30 split)
+      responses:
+        "201": { description: Target recorded with source MANUAL }
+        "400": { description: Below 800 kcal, above 10000, or only some macros given }
+  /users/me/goals/history:
+    get:
+      summary: Last 20 targets, newest first
+      responses:
+        "200": { description: Targets }
+  /account/me:
+    get:
+      summary: Email, verification status, member-since
+      responses:
+        "200": { description: Account info (never includes secrets) }
+  /account/change-password:
+    post:
+      summary: Change password. Signs out every other device and emails a notice.
+      responses:
+        "200": { description: Updated }
+        "400": { description: Weak, or same as current }
+        "403": { description: Current password incorrect (INVALID_PASSWORD) }
+  /account/change-email:
+    post:
+      summary: Change email (re-authenticates, resets verification, notifies the old address)
+      responses:
+        "200": { description: Updated account }
+        "403": { description: Password incorrect }
+        "409": { description: Email already in use }
+  /account/sessions:
+    get:
+      summary: Signed-in devices; the current one is flagged
+      responses:
+        "200": { description: Sessions }
+  /account/sessions/revoke-others:
+    post:
+      summary: Sign out every device except this one
+      responses:
+        "204": { description: Done }
+  /account/sessions/{id}:
+    delete:
+      summary: Sign out one other device
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Done }
+        "400": { description: That is the current session - use logout }
+        "404": { description: Not found or not yours }

@@ -11,6 +11,10 @@ import "./index.css";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
+      // Data that's a few seconds stale is still fine to show instantly
+      // while a background refetch happens — this is what makes navigating
+      // between already-visited tabs feel instant instead of re-flashing a
+      // loading skeleton every single time.
       staleTime: 30_000,
       refetchOnWindowFocus: false,
       retry: 1

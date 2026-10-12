@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ApiError } from "../lib/api";
+import { loggedAtFor, todayString } from "../lib/dates";
 import { useAiParse, useAcceptAiParse } from "../lib/queries";
 import type { AiParsedItem, MealType } from "../lib/types";
 import { Button, ErrorText, Field, Input, PageHeader, Panel, Select } from "../components/ui";
@@ -9,6 +10,7 @@ const MEALS: MealType[] = ["BREAKFAST", "LUNCH", "DINNER", "SNACK"];
 
 interface ReviewItem extends AiParsedItem {
   loggedAt: string;
+  loggedDate: string;
 }
 
 export function QuickAdd() {
@@ -27,7 +29,7 @@ export function QuickAdd() {
     parseMutation.mutate(text, {
       onSuccess: (res) => {
         setRequestId(res.requestId);
-        setItems(res.items.map((it) => ({ ...it, loggedAt: new Date().toISOString() })));
+        setItems(res.items.map((it) => ({ ...it, loggedAt: loggedAtFor(todayString()), loggedDate: todayString() })));
         if (res.items.length === 0) {
           setError(
             "Nothing recognized. This preview build doesn't have a live model connected yet — try adding foods directly instead."
@@ -46,6 +48,9 @@ export function QuickAdd() {
     if (!requestId) return;
     setError("");
     acceptMutation.mutate(items, {
+      // The mutation hook already invalidates the logs query cache on
+      // success, so Today reflects these as soon as it's visited — without
+      // that, Today would keep showing its last-cached (pre-AI-add) logs.
       onSuccess: () => navigate("/"),
       onError: (err) => setError(err instanceof ApiError ? err.message : "Could not save these entries")
     });
