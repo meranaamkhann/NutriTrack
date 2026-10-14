@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: nutritrack
       POSTGRES_DB: nutritrack
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - nutritrack_pg:/var/lib/postgresql/data
 volumes:
