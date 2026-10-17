@@ -40,7 +40,6 @@ describe("Today / diary page", () => {
     expect(screen.getByText("Recipe")).toBeTruthy();
     expect(screen.getByText(/1\.5 servings/)).toBeTruthy();
     expect(screen.getByText(/^50 g ·/)).toBeTruthy();
-    // 2000 target - (190 + 600) eaten
     expect(screen.getByText((1210).toLocaleString())).toBeTruthy();
     expect(screen.getByText("kcal left")).toBeTruthy();
     expect(await screen.findByText(/Asad/)).toBeTruthy();
@@ -62,7 +61,6 @@ describe("Today / diary page", () => {
   });
 
   it("removes a recipe entry at once and calls the recipe-log endpoint (a food calls /logs)", async () => {
-    // Stateful: once the server has deleted something it must stop coming back.
     const deleted = new Set<string>();
     const calls = mockApi(
       baseRoutes({

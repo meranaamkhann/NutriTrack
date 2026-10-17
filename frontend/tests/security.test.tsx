@@ -46,7 +46,6 @@ describe("change password", () => {
     fireEvent.click(screen.getByRole("button", { name: "Update password" }));
 
     expect(await screen.findByText("Current password is incorrect")).toBeTruthy();
-    // A 403 must not trigger a silent session refresh + retry (that would submit the wrong password twice)
     expect(calls.filter((c) => c.path === "/account/change-password")).toHaveLength(1);
     expect(calls.some((c) => c.path === "/auth/refresh")).toBe(false);
   });

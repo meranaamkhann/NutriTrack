@@ -65,7 +65,6 @@ describe("setup wizard", () => {
     const body = calls.find((c) => c.path === "/users/me/setup")!.body as Record<string, unknown>;
     expect(body).toMatchObject({ sexForCalc: "MALE", heightCm: 178, weightKg: 82, goal: "LOSE", unitPref: "METRIC", dateOfBirth: "1998-04-12" });
     expect(typeof body.timezone).toBe("string");
-    // accepting the suggestion must NOT create a separate manual target
     expect(calls.some((c) => c.path === "/users/me/goals/manual")).toBe(false);
   });
 

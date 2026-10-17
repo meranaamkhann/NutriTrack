@@ -32,9 +32,6 @@ function matchRoute(routes: Record<string, Handler>, method: string, path: strin
   }
   return undefined;
 }
-
-// Routes `fetch` by method + path (":id" segments allowed) so a page can be
-// mounted and driven without a backend. Returns the recorded calls.
 export function mockApi(routes: Record<string, Handler>) {
   const calls: { method: string; path: string; search: string; body: unknown }[] = [];
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
