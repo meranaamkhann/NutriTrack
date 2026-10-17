@@ -44,7 +44,6 @@ describe("Today / diary page", () => {
     expect(screen.getByText((1210).toLocaleString())).toBeTruthy();
     expect(screen.getByText("kcal left")).toBeTruthy();
     expect(await screen.findByText(/Asad/)).toBeTruthy();
-    // All four meals are always present, empty or not
     for (const meal of ["Breakfast", "Lunch", "Dinner", "Snacks"]) expect(screen.getByText(meal)).toBeTruthy();
   });
 

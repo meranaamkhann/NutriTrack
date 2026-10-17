@@ -73,11 +73,8 @@ export function Setup() {
   const [calories, setCalories] = useState("");
   const [error, setError] = useState("");
   const prefilled = useRef(false);
-  // Don't show the form until saved details have loaded, otherwise the
-  // pre-fill below can land after the user has started typing and wipe it.
   const ready = !profile.isLoading && !weights.isLoading;
 
-  // If they're re-running setup, start from what's already saved.
   useEffect(() => {
     if (prefilled.current || !ready || !profile.data) return;
     prefilled.current = true;
@@ -97,7 +94,6 @@ export function Setup() {
 
   function switchUnit(next: UnitPref) {
     if (next === unit) return;
-    // Convert whatever is already typed so it doesn't silently change meaning.
     const conv = (value: string, toDisplay: (n: number) => number, fromDisplay: (n: number) => number) =>
       value ? String(toDisplay(fromDisplay(Number(value)))) : value;
     setHeight(conv(height, (cm) => cmToDisplay(cm, next), (v) => displayToCm(v, unit)));
