@@ -59,8 +59,6 @@ export async function getFoodById(userId: string, foodId: string) {
   return food;
 }
 
-// Most recently logged distinct foods, newest first, so re-logging a staple
-// is one tap instead of a search.
 export async function recentFoods(userId: string, limit = 10) {
   const rows = await db
     .select({ food: foods })
