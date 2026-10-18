@@ -1,7 +1,5 @@
 import { Icon } from "./icons";
 
-// Guidance only. The real rules are enforced by the server; this just helps
-// someone pick something better than the minimum.
 function scorePassword(password: string): number {
   let score = 0;
   if (password.length >= 10) score++;
