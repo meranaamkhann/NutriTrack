@@ -1,0 +1,157 @@
+import { useRef, useState } from "react";
+import { ApiError } from "../lib/api";
+import { useCreateFood, useFoodSearch } from "../lib/queries";
+import { Button, EmptyState, ErrorText, Field, Input, PageHeader, Panel, Select } from "../components/ui";
+import { ListSkeleton } from "../components/Skeleton";
+import { useToast } from "../lib/toast";
+
+const UNITS = ["G", "ML", "PIECE", "CUP", "TBSP", "TSP", "OZ"];
+
+export function Foods() {
+  const { push } = useToast();
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const foodsQuery = useFoodSearch(debouncedQuery);
+  const foods = foodsQuery.data ?? [];
+
+  function onQueryChange(value: string) {
+    setQuery(value);
+    clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => setDebouncedQuery(value), 200);
+  }
+
+  return (
+    <div>
+      <PageHeader title="Foods" subtitle="Your custom foods and the shared food database." />
+      <div className="mb-4 flex gap-3">
+        <Input placeholder="Search foods…" value={query} onChange={(e) => onQueryChange(e.target.value)} className="flex-1" />
+        <Button onClick={() => setShowCreate((s) => !s)} variant="secondary">
+          {showCreate ? "Close" : "+ New food"}
+        </Button>
+      </div>
+
+      {showCreate && (
+        <div className="mb-6">
+          <CreateFoodForm
+            onCreated={() => {
+              setShowCreate(false);
+              push("success", "Food created.");
+            }}
+          />
+        </div>
+      )}
+
+      {foodsQuery.isLoading ? (
+        <ListSkeleton rows={5} />
+      ) : foods.length === 0 ? (
+        <EmptyState title="No foods found" body="Try a different search, or create your own food." />
+      ) : (
+        <div className="divide-y divide-line rounded-sm border border-line bg-white">
+          {foods.map((food) => (
+            <div key={food.id} className="flex items-center justify-between px-4 py-3">
+              <div>
+                <p className="text-sm font-medium text-ink">{food.name}</p>
+                <p className="text-xs text-ink-soft">
+                  {Number(food.servingSize)}
+                  {food.servingUnit.toLowerCase()} · P{Number(food.proteinG)}g · C{Number(food.carbG)}g · F
+                  {Number(food.fatG)}g
+                </p>
+              </div>
+              <span className="text-sm text-ink">{Number(food.calories)} kcal</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CreateFoodForm({ onCreated }: { onCreated: () => void }) {
+  const [form, setForm] = useState({
+    name: "",
+    servingSize: "100",
+    servingUnit: "G",
+    calories: "",
+    proteinG: "0",
+    carbG: "0",
+    fatG: "0"
+  });
+  const [error, setError] = useState("");
+  const createFood = useCreateFood();
+
+  function set<K extends keyof typeof form>(key: K, value: string) {
+    setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    createFood.mutate(
+      {
+        name: form.name,
+        servingSize: Number(form.servingSize),
+        servingUnit: form.servingUnit,
+        calories: Number(form.calories),
+        proteinG: Number(form.proteinG),
+        carbG: Number(form.carbG),
+        fatG: Number(form.fatG)
+      },
+      {
+        onSuccess: () => onCreated(),
+        onError: (err) => setError(err instanceof ApiError ? err.message : "Could not create food")
+      }
+    );
+  }
+
+  return (
+    <Panel>
+      <form onSubmit={submit} className="flex flex-col gap-4">
+        <ErrorText>{error}</ErrorText>
+        <Field label="Name">
+          <Input required value={form.name} onChange={(e) => set("name", e.target.value)} />
+        </Field>
+        <div className="flex gap-4">
+          <Field label="Serving size">
+            <Input
+              type="number"
+              step="0.1"
+              min="0.1"
+              required
+              value={form.servingSize}
+              onChange={(e) => set("servingSize", e.target.value)}
+            />
+          </Field>
+          <Field label="Unit">
+            <Select value={form.servingUnit} onChange={(e) => set("servingUnit", e.target.value)}>
+              {UNITS.map((u) => (
+                <option key={u} value={u}>
+                  {u.toLowerCase()}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+        <div className="grid grid-cols-4 gap-3">
+          <Field label="Calories">
+            <Input type="number" step="1" min="0" required value={form.calories} onChange={(e) => set("calories", e.target.value)} />
+          </Field>
+          <Field label="Protein (g)">
+            <Input type="number" step="0.1" min="0" value={form.proteinG} onChange={(e) => set("proteinG", e.target.value)} />
+          </Field>
+          <Field label="Carbs (g)">
+            <Input type="number" step="0.1" min="0" value={form.carbG} onChange={(e) => set("carbG", e.target.value)} />
+          </Field>
+          <Field label="Fat (g)">
+            <Input type="number" step="0.1" min="0" value={form.fatG} onChange={(e) => set("fatG", e.target.value)} />
+          </Field>
+        </div>
+        <Button type="submit" disabled={createFood.isPending}>
+          {createFood.isPending ? "Creating…" : "Create food"}
+        </Button>
+      </form>
+    </Panel>
+  );
+}

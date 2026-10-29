@@ -1,0 +1,65 @@
+@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&display=swap");
+@import "tailwindcss";
+
+/*
+  Design language: the nutrition label.
+  Black on white, heavy rules between sections, one highlighter yellow for
+  "this is the thing to look at", red only for over-target and destructive.
+*/
+@theme {
+  --color-paper: #e6e8e5; /* page behind the labels */
+  --color-wash: #f1f2f0; /* hover / quiet fill */
+  --color-ink: #000000;
+  --color-ink-soft: #444444;
+  --color-line: #bfc2be; /* hairlines inside a label */
+  --color-mark: #ffe14d; /* highlighter */
+  --color-mark-tint: #fff6c2;
+  --color-alert: #c62e1b;
+  --color-alert-tint: #fbe3df;
+  --color-focus: #1d5fa8;
+
+  --font-display: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Archivo", ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-variant-numeric: tabular-nums;
+}
+
+h1, h2, h3, .font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+* {
+  scrollbar-width: thin;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* Macro bars: told apart by pattern, not just colour. */
+.bar-track {
+  height: 10px;
+  border: 1px solid var(--color-ink);
+  background: #fff;
+}
+.bar-fill {
+  height: 100%;
+  transition: width 300ms ease;
+}
+.bar-protein { background: var(--color-ink); }
+.bar-carb {
+  background: repeating-linear-gradient(45deg, var(--color-ink) 0 2px, transparent 2px 6px);
+}
+.bar-fat { background: var(--color-mark); border-right: 1px solid var(--color-ink); }
+.bar-over { background: var(--color-alert); }
+
+@media (prefers-reduced-motion: reduce) {
+  .bar-fill { transition: none; }
+}
