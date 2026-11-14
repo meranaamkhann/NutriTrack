@@ -1,9 +1,12 @@
 node_modules/
 dist/
 .dist/
-.env
 .env.local
 backend/storage/
 *.log
 .DS_Store
-backend/.env 
+
+# Environment variables
+.env
+.env.*
+!.env.example
