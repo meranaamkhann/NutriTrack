@@ -4,9 +4,22 @@ import { Redis } from "ioredis";
 import type { Request } from "express";
 import { env } from "../config/env.js";
 import { logger } from "../lib/logger.js";
+import { verifyAccessToken } from "../lib/jwt.js";
 
+// Per signed-in user when there is a valid token, otherwise per IP. The app-wide
+// limiter runs before requireAuth, so it reads the (signature-checked) token
+// itself; otherwise everyone behind one office/NAT IP would share one bucket.
 function keyByUserOrIp(req: Request): string {
-  return req.user?.id ?? ipKeyGenerator(req.ip ?? "unknown");
+  if (req.user?.id) return `u:${req.user.id}`;
+  const header = req.headers.authorization;
+  if (header?.startsWith("Bearer ")) {
+    try {
+      return `u:${verifyAccessToken(header.slice(7)).sub}`;
+    } catch {
+      // invalid token: fall back to the IP bucket
+    }
+  }
+  return ipKeyGenerator(req.ip ?? "unknown");
 }
 
 // A single shared Redis-backed store when REDIS_URL is set, so rate limits

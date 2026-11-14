@@ -1,5 +1,7 @@
 import { Icon } from "./icons";
 
+// Guidance only. The real rules are enforced by the server; this just helps
+// someone pick something better than the minimum.
 function scorePassword(password: string): number {
   let score = 0;
   if (password.length >= 10) score++;
@@ -10,7 +12,7 @@ function scorePassword(password: string): number {
 }
 
 const LABELS = ["Too weak", "Weak", "Okay", "Good", "Strong"];
-const COLORS = ["bg-brick", "bg-brick", "bg-gold", "bg-pine", "bg-pine-dark"];
+const COLORS = ["bg-alert", "bg-alert", "bg-mark", "bg-ink", "bg-ink"];
 
 export function PasswordStrength({ password }: { password: string }) {
   if (!password) return null;
@@ -33,7 +35,7 @@ export function PasswordStrength({ password }: { password: string }) {
       </div>
       <ul className="flex flex-wrap gap-x-4 gap-y-1">
         {rules.map((rule) => (
-          <li key={rule.label} className={`flex items-center gap-1 text-xs ${rule.ok ? "text-pine" : "text-ink-soft"}`}>
+          <li key={rule.label} className={`flex items-center gap-1 text-xs ${rule.ok ? "text-ink" : "text-ink-soft"}`}>
             <Icon name={rule.ok ? "check" : "plus"} size={12} />
             {rule.label}
           </li>

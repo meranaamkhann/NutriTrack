@@ -25,12 +25,12 @@ export function VerifyBanner() {
   }
 
   return (
-    <div role="status" className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-gold-tint px-4 py-2 text-center text-sm text-ink">
+    <div role="status" className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-mark-tint px-4 py-2 text-center text-sm text-ink">
       <Icon name="alert" size={16} />
       <span>
         Please verify <strong>{email}</strong> so you can recover your account if you forget your password.
       </span>
-      <button onClick={resend} disabled={sending} className="font-semibold text-pine-dark underline underline-offset-2 disabled:opacity-60">
+      <button onClick={resend} disabled={sending} className="font-semibold text-ink underline underline-offset-2 disabled:opacity-60">
         {sending ? "Sending…" : "Resend email"}
       </button>
     </div>

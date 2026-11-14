@@ -59,6 +59,15 @@ export async function acceptParse(userId: string, requestId: string, items: Acce
   const timezone = profile?.timezone ?? "UTC";
 
   return db.transaction(async (tx) => {
+    // Claim the request first and atomically, so parallel accepts of the same
+    // request can't each create their own copy of the logs.
+    const claimed = await tx
+      .update(aiParseRequests)
+      .set({ accepted: true })
+      .where(and(eq(aiParseRequests.id, requestId), eq(aiParseRequests.userId, userId), eq(aiParseRequests.accepted, false)))
+      .returning({ id: aiParseRequests.id });
+    if (claimed.length === 0) throw new AppError("CONFLICT", "This AI request was already accepted");
+
     const logs = [];
     for (const item of items) {
       const [food] = await tx
@@ -100,7 +109,7 @@ export async function acceptParse(userId: string, requestId: string, items: Acce
 
     await tx
       .update(aiParseRequests)
-      .set({ accepted: true, parsedOutput: { items } })
+      .set({ parsedOutput: { items } })
       .where(eq(aiParseRequests.id, requestId));
 
     return logs;

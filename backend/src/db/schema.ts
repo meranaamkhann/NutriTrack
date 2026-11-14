@@ -47,6 +47,9 @@ export const users = pgTable("users", {
   id: id(),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
+  // An address the user asked to switch to but hasn't proven they own yet.
+  // The login email only changes once the link sent to this address is used.
+  pendingEmail: text("pending_email"),
   passwordHash: text("password_hash").notNull(),
   role: roleEnum("role").notNull().default("USER"),
   failedLoginAttempts: integer("failed_login_attempts").notNull().default(0),

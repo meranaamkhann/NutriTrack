@@ -22,12 +22,12 @@ export function AddPanel({
 }) {
   const [mode, setMode] = useState<Mode>("foods");
   const seg = (active: boolean) =>
-    `rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${active ? "bg-white text-pine-dark shadow-sm" : "text-ink-soft hover:text-ink"}`;
+    `px-3 py-1.5 text-sm font-bold transition-colors ${active ? "bg-ink text-white" : "text-ink hover:bg-mark"}`;
 
   return (
     <Panel className="mb-6">
       <div className="mb-4 flex items-center justify-between">
-        <div className="inline-flex gap-1 rounded-lg bg-paper p-1" role="tablist">
+        <div className="inline-flex border-2 border-ink" role="tablist">
           <button role="tab" aria-selected={mode === "foods"} className={seg(mode === "foods")} onClick={() => setMode("foods")}>
             Foods
           </button>
@@ -35,7 +35,7 @@ export function AddPanel({
             Recipes
           </button>
         </div>
-        <button onClick={onClose} className="text-sm font-medium text-ink-soft hover:text-ink">
+        <button onClick={onClose} className="text-sm font-bold text-ink underline underline-offset-4">
           Close
         </button>
       </div>
@@ -107,21 +107,21 @@ function FoodAdder({ date, initialMeal, onDone }: { date: string; initialMeal: M
 
       {!selected && (
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-soft">
+          <p className="mb-2 text-sm font-bold text-ink">
             {debounced ? "Results" : showingRecent ? "Recent" : "Your foods"}
           </p>
           {results.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-line px-3 py-4 text-center text-sm text-ink-soft">
+            <p className="rounded-sm border border-dashed border-line px-3 py-4 text-center text-sm text-ink-soft">
               {debounced ? "No match. Create it on the Foods page first." : "No foods yet. Create one on the Foods page."}
             </p>
           ) : (
-            <div className="divide-y divide-line rounded-lg border border-line">
+            <div className="divide-y divide-line rounded-sm border border-line">
               {results.map((food) => (
                 <button
                   type="button"
                   key={food.id}
                   onClick={() => choose(food)}
-                  className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm hover:bg-paper"
+                  className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm hover:bg-wash"
                 >
                   <span className="truncate font-medium text-ink">{food.name}</span>
                   <span className="shrink-0 text-xs text-ink-soft">
@@ -165,7 +165,7 @@ function RecipeAdder({ date, initialMeal, onDone }: { date: string; initialMeal:
 
   if (recipes.isLoading) return <p className="text-sm text-ink-soft">Loading recipes…</p>;
   if (!recipes.data?.length) {
-    return <p className="rounded-lg border border-dashed border-line px-3 py-4 text-center text-sm text-ink-soft">No recipes yet. Build one on the Recipes page.</p>;
+    return <p className="rounded-sm border border-dashed border-line px-3 py-4 text-center text-sm text-ink-soft">No recipes yet. Build one on the Recipes page.</p>;
   }
   return (
     <div className="flex flex-col gap-4">
@@ -178,7 +178,7 @@ function RecipeAdder({ date, initialMeal, onDone }: { date: string; initialMeal:
           ))}
         </Select>
       </Field>
-      <div className="divide-y divide-line rounded-lg border border-line">
+      <div className="divide-y divide-line rounded-sm border border-line">
         {recipes.data.map((recipe) => (
           <RecipeRow key={recipe.id} recipe={recipe} date={date} meal={meal} onDone={onDone} />
         ))}
@@ -208,7 +208,7 @@ function RecipeRow({ recipe, date, meal, onDone }: { recipe: Recipe; date: strin
   return (
     <div className="flex flex-wrap items-center gap-3 px-3 py-2.5">
       <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{recipe.name}</span>
-      {error && <span className="text-xs text-brick">{error}</span>}
+      {error && <span className="text-xs text-alert">{error}</span>}
       <Input type="number" min="0.1" step="0.1" value={servings} onChange={(e) => setServings(e.target.value)} className="w-20" aria-label={`Servings of ${recipe.name}`} />
       <span className="text-xs text-ink-soft">servings</span>
       <Button type="button" onClick={add} disabled={log.isPending} className="px-3 py-1.5">

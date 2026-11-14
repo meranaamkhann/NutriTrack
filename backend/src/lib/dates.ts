@@ -21,7 +21,8 @@ export function parseLocalDate(value: string): Date {
 // so a server that has been up for more than a day rejects every new log.
 export const instantNotFarFuture = z.coerce
   .date()
-  .refine((d) => d.getTime() <= Date.now() + DAY_MS, "That time is too far in the future");
+  .refine((d) => d.getTime() <= Date.now() + DAY_MS, "That time is too far in the future")
+  .refine((d) => d.getTime() >= Date.UTC(2000, 0, 1), "That time is too far in the past");
 
 export const loggableDateString = localDateString.refine((value) => {
   const t = parseLocalDate(value).getTime();

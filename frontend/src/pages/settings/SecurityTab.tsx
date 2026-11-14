@@ -103,7 +103,7 @@ function SessionsPanel() {
       {sessions.isLoading ? (
         <ListSkeleton rows={2} />
       ) : (
-        <ul className="divide-y divide-line rounded-lg border border-line">
+        <ul className="divide-y divide-line rounded-sm border border-line">
           {(sessions.data ?? []).map((s) => (
             <li key={s.id} className="flex items-center justify-between gap-3 px-4 py-3">
               <div className="min-w-0">
@@ -125,7 +125,7 @@ function SessionsPanel() {
                     })
                   }
                   disabled={revoke.isPending}
-                  className="shrink-0 text-xs font-medium text-brick hover:underline"
+                  className="shrink-0 text-xs font-medium text-alert hover:underline"
                 >
                   Sign out
                 </button>

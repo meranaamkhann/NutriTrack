@@ -85,8 +85,8 @@ export function ProfileTab() {
         <ErrorText>{error}</ErrorText>
         {needsWeight && (
           <p className="text-sm text-ink-soft">
-            Targets need a weight entry. Add one on the <Link to="/weight" className="font-medium text-pine">Weight page</Link>, or use the{" "}
-            <Link to="/setup" className="font-medium text-pine">guided setup</Link>.
+            Targets need a weight entry. Add one on the <Link to="/weight" className="font-bold text-ink underline underline-offset-4">Weight page</Link>, or use the{" "}
+            <Link to="/setup" className="font-bold text-ink underline underline-offset-4">guided setup</Link>.
           </p>
         )}
         <div className="grid gap-4 sm:grid-cols-2">

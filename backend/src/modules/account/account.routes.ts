@@ -5,6 +5,7 @@ import { validate } from "../../middleware/validate.js";
 import { accountSensitiveLimiter } from "../../middleware/rateLimit.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { passwordSchema } from "../auth/auth.schemas.js";
+import { isProd } from "../../config/env.js";
 import * as service from "./account.service.js";
 
 const deleteAccountSchema = z.object({
@@ -52,7 +53,8 @@ accountRouter.post(
   accountSensitiveLimiter,
   validate(changeEmailSchema),
   asyncHandler(async (req, res) => {
-    res.status(200).json(await service.changeEmail(req.user!.id, req.body.newEmail, req.body.password));
+    const { account, verifyToken } = await service.changeEmail(req.user!.id, req.body.newEmail, req.body.password);
+    res.status(200).json({ ...account, devOnlyVerifyToken: isProd ? undefined : verifyToken });
   })
 );
 

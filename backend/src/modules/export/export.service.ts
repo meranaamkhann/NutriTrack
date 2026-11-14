@@ -16,6 +16,7 @@ import {
 import { AppError } from "../../utils/AppError.js";
 import { generateOpaqueToken, hashToken, safeEqual } from "../../lib/crypto.js";
 import { env } from "../../config/env.js";
+import { csvCell } from "../../lib/numeric.js";
 
 type ExportFormat = (typeof exportJobs.$inferSelect)["format"];
 
@@ -50,21 +51,42 @@ async function collectUserData(userId: string) {
   };
 }
 
-function toCsv(rows: Awaited<ReturnType<typeof collectUserData>>["foodLogs"]): string {
+type UserData = Awaited<ReturnType<typeof collectUserData>>;
+
+// One row per diary entry (foods and recipes), oldest first. Text cells are
+// neutralised so a food named "=HYPERLINK(...)" can't run as a spreadsheet
+// formula when the file is opened.
+function toCsv(data: Pick<UserData, "foodLogs" | "recipeLogs">): string {
   const header = "date,meal,food,quantity,calories,protein_g,carb_g,fat_g\n";
-  const lines = rows.map((log) =>
-    [
-      log.loggedDate.toISOString().slice(0, 10),
-      log.meal,
-      `"${log.foodNameSnapshot.replace(/"/g, '""')}"`,
-      log.quantity,
-      log.caloriesSnapshot,
-      log.proteinGSnapshot,
-      log.carbGSnapshot,
-      log.fatGSnapshot
-    ].join(",")
-  );
-  return header + lines.join("\n");
+  const rows = [
+    ...data.foodLogs.map((log) => ({
+      at: log.loggedAt.getTime(),
+      cells: [
+        log.loggedDate.toISOString().slice(0, 10),
+        log.meal,
+        csvCell(log.foodNameSnapshot),
+        log.quantity,
+        log.caloriesSnapshot,
+        log.proteinGSnapshot,
+        log.carbGSnapshot,
+        log.fatGSnapshot
+      ]
+    })),
+    ...data.recipeLogs.map((log) => ({
+      at: log.loggedAt.getTime(),
+      cells: [
+        log.loggedDate.toISOString().slice(0, 10),
+        log.meal,
+        csvCell(`${log.recipeNameSnapshot} (recipe, servings)`),
+        log.servingsConsumed,
+        log.caloriesSnapshot,
+        log.proteinGSnapshot,
+        log.carbGSnapshot,
+        log.fatGSnapshot
+      ]
+    }))
+  ].sort((x, y) => x.at - y.at);
+  return header + rows.map((r) => r.cells.join(",")).join("\n");
 }
 
 export async function createExport(userId: string, format: ExportFormat) {
@@ -76,7 +98,7 @@ export async function createExport(userId: string, format: ExportFormat) {
 
   const fileName = `${job.id}.${format === "JSON" ? "json" : "csv"}`;
   const filePath = path.join(dir, fileName);
-  const content = format === "JSON" ? JSON.stringify(data, null, 2) : toCsv(data.foodLogs);
+  const content = format === "JSON" ? JSON.stringify(data, null, 2) : toCsv(data);
   await writeFile(filePath, content, "utf8");
 
   const token = generateOpaqueToken();

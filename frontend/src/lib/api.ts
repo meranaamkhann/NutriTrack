@@ -24,7 +24,9 @@ export class ApiError extends Error {
   }
 }
 
-async function tryRefresh(): Promise<boolean> {
+// One refresh at a time: callers that arrive while one is in flight (several
+// failed requests, React StrictMode running the startup effect twice) share it.
+export async function refreshSession(): Promise<boolean> {
   if (!refreshPromise) {
     refreshPromise = fetch(`${BASE}/auth/refresh`, { method: "POST", credentials: "include" })
       .then(async (res) => {
@@ -66,7 +68,7 @@ async function request<T>(path: string, opts: RequestOptions = {}, isRetry = fal
   });
 
   if (res.status === 401 && !isRetry && !path.startsWith("/auth/")) {
-    const refreshed = await tryRefresh();
+    const refreshed = await refreshSession();
     if (refreshed) return request<T>(path, opts, true);
   }
 
@@ -89,16 +91,10 @@ export const api = {
   post: <T>(path: string, body?: unknown) => request<T>(path, { method: "POST", body }),
   put: <T>(path: string, body?: unknown) => request<T>(path, { method: "PUT", body }),
   delete: <T>(path: string, body?: unknown) => request<T>(path, { method: "DELETE", body }),
-  async downloadBlob(path: string, query: RequestOptions["query"], filename: string) {
-    const url = new URL(BASE + path, window.location.origin);
-    if (query) {
-      for (const [key, value] of Object.entries(query)) {
-        if (value !== undefined) url.searchParams.set(key, String(value));
-      }
-    }
-    const res = await fetch(url.toString().replace(window.location.origin, ""), {
+  async downloadBlob(path: string, filename: string, extraHeaders: Record<string, string> = {}) {
+    const res = await fetch(BASE + path, {
       credentials: "include",
-      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {}
+      headers: { ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}), ...extraHeaders }
     });
     if (!res.ok) throw new ApiError(res.status, "ERROR", "Download failed");
     const blob = await res.blob();
@@ -106,7 +102,10 @@ export const api = {
     const link = document.createElement("a");
     link.href = objectUrl;
     link.download = filename;
+    document.body.appendChild(link);
     link.click();
-    URL.revokeObjectURL(objectUrl);
+    link.remove();
+    // Revoking straight away can cancel the download in some browsers.
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
   }
 };

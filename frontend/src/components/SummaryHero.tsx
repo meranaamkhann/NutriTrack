@@ -10,111 +10,112 @@ interface Totals {
   fatG: number;
 }
 
-const SIZE = 176;
-const STROKE = 14;
-
-function Ring({ consumed, target }: { consumed: number; target: number | null }) {
-  const radius = (SIZE - STROKE) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const ratio = target ? Math.min(consumed / target, 1) : 0;
-  const over = target !== null && consumed > target;
-  const remaining = target !== null ? Math.round(target - consumed) : null;
-
+function Bar({ label, value, target, kind }: { label: string; value: number; target?: number | null; kind: "bar-protein" | "bar-carb" | "bar-fat" }) {
+  const pct = target ? Math.min((value / target) * 100, 100) : 0;
   return (
-    <div className="relative shrink-0" style={{ width: SIZE, height: SIZE }}>
-      <svg width={SIZE} height={SIZE} className="-rotate-90" role="img" aria-label={target ? `${kcal(consumed)} of ${kcal(target)} calories eaten` : `${kcal(consumed)} calories eaten`}>
-        <circle cx={SIZE / 2} cy={SIZE / 2} r={radius} stroke="rgba(255,255,255,0.15)" strokeWidth={STROKE} fill="none" />
-        <circle
-          cx={SIZE / 2}
-          cy={SIZE / 2}
-          r={radius}
-          stroke={over ? "#f08a80" : "#e0b25a"}
-          strokeWidth={STROKE}
-          fill="none"
-          strokeDasharray={circumference}
-          strokeDashoffset={circumference * (1 - ratio)}
-          strokeLinecap="round"
-          style={{ transition: "stroke-dashoffset 400ms ease" }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        {remaining !== null ? (
-          <>
-            <span className={`font-display text-4xl font-semibold ${over ? "text-[#f8b4ad]" : "text-white"}`}>
-              {kcal(Math.abs(remaining))}
-            </span>
-            <span className="text-xs text-white/70">{over ? "kcal over" : "kcal left"}</span>
-          </>
-        ) : (
-          <>
-            <span className="font-display text-4xl font-semibold text-white">{kcal(consumed)}</span>
-            <span className="text-xs text-white/70">kcal eaten</span>
-          </>
-        )}
-      </div>
+    <div
+      className="bar-track"
+      role="progressbar"
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={target ?? undefined}
+      aria-valuenow={Math.round(value)}
+    >
+      <div className={`bar-fill ${kind}`} style={{ width: `${pct}%` }} />
     </div>
   );
 }
 
-function MacroRow({ label, grams, target, color }: { label: string; grams: number; target?: number; color: string }) {
-  const pct = target ? Math.min((grams / target) * 100, 100) : 0;
+function MacroRow({
+  label,
+  grams,
+  target,
+  kind
+}: {
+  label: string;
+  grams: number;
+  target?: number;
+  kind: "bar-protein" | "bar-carb" | "bar-fat";
+}) {
   return (
-    <div>
-      <div className="mb-1 flex items-baseline justify-between text-sm">
-        <span className="font-medium text-white">{label}</span>
-        <span className="text-white/70">
+    <div className="border-t border-line py-2.5">
+      <div className="mb-1.5 flex items-baseline justify-between text-sm">
+        <span className="font-bold">{label}</span>
+        <span>
           {Math.round(grams)}
           {target ? ` / ${Math.round(target)}` : ""} g
+          {target ? <span className="ml-3 inline-block w-10 text-right font-bold">{Math.round((grams / target) * 100)}%</span> : null}
         </span>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-white/15">
-        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color, transition: "width 400ms ease" }} />
-      </div>
+      <Bar label={`${label} eaten`} value={grams} target={target} kind={kind} />
     </div>
   );
 }
 
 export function SummaryHero({ totals, goal }: { totals: Totals; goal: DiaryGoal | null }) {
   const target = goal?.calorieTarget ?? null;
+  const remaining = target !== null ? Math.round(target - totals.calories) : null;
+  const over = remaining !== null && remaining < 0;
+  const calPct = target ? Math.min((totals.calories / target) * 100, 100) : 0;
+
   return (
-    <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-pine-dark to-pine p-6 text-white">
-      <svg className="pointer-events-none absolute -right-8 -top-8 h-44 w-44 text-white opacity-[0.06]" viewBox="0 0 200 200" aria-hidden="true">
-        <path d="M20 180C20 90 80 20 190 20c0 100-60 160-170 160z" fill="currentColor" />
-      </svg>
-      <div className="relative flex flex-col items-center gap-6 sm:flex-row sm:items-center sm:gap-8">
-        <Ring consumed={totals.calories} target={target} />
-        <div className="w-full flex-1">
-          <div className="mb-4 flex items-center justify-between text-sm">
-            <div>
-              <p className="text-white/65">Eaten</p>
-              <p className="font-display text-xl font-semibold">{kcal(totals.calories)}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-white/65">Daily target</p>
-              <p className="font-display text-xl font-semibold">{target ? kcal(target) : "Not set"}</p>
-            </div>
-          </div>
-          <div className="flex flex-col gap-3">
-            <MacroRow label="Protein" grams={totals.proteinG} target={goal?.proteinGTarget} color="#7fd1b0" />
-            <MacroRow label="Carbs" grams={totals.carbG} target={goal?.carbGTarget} color="#e0b25a" />
-            <MacroRow label="Fat" grams={totals.fatG} target={goal?.fatGTarget} color="#8bb8dd" />
-          </div>
-          {goal ? (
-            <p className="mt-4 flex items-center gap-2 text-xs text-white/65">
-              <Badge tone="neutral">{goal.source === "MANUAL" ? "Your own target" : "Calculated estimate"}</Badge>
-              <Link to="/settings?tab=targets" className="underline underline-offset-2 hover:text-white">
-                Change
-              </Link>
-            </p>
+    <section className="rounded-sm border border-line border-t-[12px] border-t-ink bg-white px-5 pb-5 pt-4">
+      <div className="flex items-end justify-between gap-4 border-b-[6px] border-ink pb-3">
+        <div>
+          {remaining !== null ? (
+            <>
+              <span className={`block font-display text-7xl font-black leading-none ${over ? "text-alert" : "text-ink"}`}>{kcal(Math.abs(remaining))}</span>
+              <span className="mt-1 block text-sm font-bold">{over ? "kcal over" : "kcal left"}</span>
+            </>
           ) : (
-            <Link
-              to="/setup"
-              className="mt-4 inline-flex rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-pine-dark hover:brightness-105"
-            >
-              Set your daily target
-            </Link>
+            <>
+              <span className="block font-display text-7xl font-black leading-none">{kcal(totals.calories)}</span>
+              <span className="mt-1 block text-sm font-bold">kcal eaten</span>
+            </>
           )}
         </div>
+        {target !== null && (
+          <dl className="text-right text-sm">
+            <dt className="text-ink-soft">Eaten</dt>
+            <dd className="mb-2 text-lg font-extrabold">{kcal(totals.calories)}</dd>
+            <dt className="text-ink-soft">Daily target</dt>
+            <dd className="text-lg font-extrabold">{kcal(target)}</dd>
+          </dl>
+        )}
+      </div>
+
+      {target !== null && (
+        <div
+          className="bar-track mt-3"
+          role="progressbar"
+          aria-label="Calories eaten"
+          aria-valuemin={0}
+          aria-valuemax={target}
+          aria-valuenow={Math.round(totals.calories)}
+        >
+          <div className={`bar-fill ${over ? "bar-over" : "bar-fat"}`} style={{ width: `${calPct}%` }} />
+        </div>
+      )}
+
+      <div className="mt-4">
+        <MacroRow label="Protein" grams={totals.proteinG} target={goal?.proteinGTarget} kind="bar-protein" />
+        <MacroRow label="Carbs" grams={totals.carbG} target={goal?.carbGTarget} kind="bar-carb" />
+        <MacroRow label="Fat" grams={totals.fatG} target={goal?.fatGTarget} kind="bar-fat" />
+      </div>
+
+      <div className="mt-3 flex items-center gap-3 border-t-[6px] border-ink pt-3 text-sm">
+        {goal ? (
+          <>
+            <Badge tone="neutral">{goal.source === "MANUAL" ? "Your own target" : "Calculated estimate"}</Badge>
+            <Link to="/settings?tab=targets" className="font-bold underline underline-offset-4 hover:bg-mark">
+              Change
+            </Link>
+          </>
+        ) : (
+          <Link to="/setup" className="bg-mark px-4 py-2 text-sm font-bold text-ink hover:brightness-95">
+            Set your daily target
+          </Link>
+        )}
       </div>
     </section>
   );

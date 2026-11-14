@@ -60,9 +60,9 @@ export function Dashboard() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b-[6px] border-ink pb-3">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-ink">
+          <h1 className="font-display text-3xl font-black text-ink">
             {isToday ? `${greeting()}${name ? `, ${name}` : ""}` : formatLongDate(date)}
           </h1>
           <p className="mt-1 text-sm text-ink-soft">{isToday ? formatLongDate(date) : "Viewing a past day. You can still add or edit entries."}</p>
@@ -78,10 +78,10 @@ export function Dashboard() {
 
       {diaryQuery.isError && <ErrorText>Couldn't load this day. Check your connection and try again.</ErrorText>}
 
-      {diaryQuery.isLoading ? <Skeleton className="h-60 w-full rounded-2xl" /> : <SummaryHero totals={totals} goal={goal} />}
+      {diaryQuery.isLoading ? <Skeleton className="h-72 w-full rounded-sm" /> : <SummaryHero totals={totals} goal={goal} />}
 
       <div className="mb-3 mt-8 flex items-center justify-between">
-        <h2 className="font-display text-lg font-semibold text-ink">Diary</h2>
+        <h2 className="font-display text-2xl font-black text-ink">Diary</h2>
         <div className="flex gap-2">
           <Link to="/quick-add">
             <Button variant="secondary">Quick add</Button>
@@ -106,7 +106,7 @@ export function Dashboard() {
       {diaryQuery.isLoading ? (
         <div className="flex flex-col gap-4">
           {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-16 w-full rounded-xl" />
+            <Skeleton key={i} className="h-16 w-full rounded-sm" />
           ))}
         </div>
       ) : (

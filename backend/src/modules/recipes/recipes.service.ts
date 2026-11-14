@@ -4,6 +4,7 @@ import { recipes, recipeIngredients, foods, recipeLogs, profiles } from "../../d
 import { AppError } from "../../utils/AppError.js";
 import { localDateInTimezone } from "../../lib/timezone.js";
 import { parseLocalDate } from "../../lib/dates.js";
+import { assertSnapshotsFit } from "../../lib/numeric.js";
 
 type MealType = (typeof recipeLogs.$inferSelect)["meal"];
 
@@ -12,11 +13,8 @@ interface IngredientInput {
   quantity: number;
 }
 
-export async function createRecipe(
-  userId: string,
-  data: { name: string; servings: number; ingredients: IngredientInput[] }
-) {
-  const foodIds = data.ingredients.map((i) => i.foodId);
+async function assertIngredientFoodsUsable(userId: string, ingredients: IngredientInput[]) {
+  const foodIds = ingredients.map((i) => i.foodId);
   const foundFoods = await db.select().from(foods).where(inArray(foods.id, foodIds));
 
   if (foundFoods.length !== new Set(foodIds).size) {
@@ -27,6 +25,13 @@ export async function createRecipe(
       throw new AppError("FORBIDDEN", "You do not have access to one of these foods");
     }
   }
+}
+
+export async function createRecipe(
+  userId: string,
+  data: { name: string; servings: number; ingredients: IngredientInput[] }
+) {
+  await assertIngredientFoodsUsable(userId, data.ingredients);
 
   return db.transaction(async (tx) => {
     const [recipe] = await tx
@@ -43,6 +48,38 @@ export async function createRecipe(
       }))
     );
 
+    return recipe;
+  });
+}
+
+// Replaces name, servings and the whole ingredient list. Past diary entries
+// keep the nutrition they were logged with (they are snapshots), so editing a
+// recipe only affects what you log from now on.
+export async function updateRecipe(
+  userId: string,
+  recipeId: string,
+  data: { name: string; servings: number; ingredients: IngredientInput[] }
+) {
+  const [existing] = await db.select().from(recipes).where(eq(recipes.id, recipeId)).limit(1);
+  if (!existing || existing.ownerId !== userId) throw new AppError("NOT_FOUND", "Recipe not found");
+  await assertIngredientFoodsUsable(userId, data.ingredients);
+
+  return db.transaction(async (tx) => {
+    const [recipe] = await tx
+      .update(recipes)
+      .set({ name: data.name, servings: data.servings, updatedAt: new Date() })
+      .where(eq(recipes.id, recipeId))
+      .returning();
+
+    await tx.delete(recipeIngredients).where(eq(recipeIngredients.recipeId, recipeId));
+    await tx.insert(recipeIngredients).values(
+      data.ingredients.map((ing, index) => ({
+        recipeId,
+        foodId: ing.foodId,
+        quantity: ing.quantity,
+        position: index
+      }))
+    );
     return recipe;
   });
 }
@@ -98,6 +135,12 @@ export async function logRecipe(
 ) {
   const { recipe, perServing } = await getRecipeWithNutrition(userId, recipeId);
   const [profile] = await db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1);
+  assertSnapshotsFit([
+    perServing.calories * input.servingsConsumed,
+    perServing.proteinG * input.servingsConsumed,
+    perServing.carbG * input.servingsConsumed,
+    perServing.fatG * input.servingsConsumed
+  ]);
 
   const [created] = await db
     .insert(recipeLogs)

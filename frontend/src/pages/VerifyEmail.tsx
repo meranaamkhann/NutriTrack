@@ -33,9 +33,9 @@ export function VerifyEmail() {
   }
   return (
     <AuthLayout title="Couldn't verify">
-      <p className="text-sm text-brick">{error}</p>
+      <p className="text-sm text-alert">{error}</p>
       <p className="mt-3 text-sm text-ink-soft">Log in and use "Resend verification email" from the banner or Settings → Account.</p>
-      <Link to="/login" className="mt-4 inline-block text-sm font-medium text-pine">
+      <Link to="/login" className="mt-4 inline-block text-sm font-bold text-ink underline underline-offset-4">
         Back to login
       </Link>
     </AuthLayout>

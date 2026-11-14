@@ -19,7 +19,7 @@ export const updateLogSchema = z.object({
     quantity: z.number().positive().max(100000).optional(),
     meal: z.enum(["BREAKFAST", "LUNCH", "DINNER", "SNACK", "CUSTOM"]).optional(),
     customMealLabel: z.string().trim().max(60).optional(),
-    loggedAt: z.coerce.date().optional()
+    loggedAt: instantNotFarFuture.optional()
   })
 });
 

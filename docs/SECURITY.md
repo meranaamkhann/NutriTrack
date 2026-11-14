@@ -1,51 +1,38 @@
-# Security Audit
+# Security notes
 
-Performed against the actual running system (live Postgres, live server,
-108 passing tests (74 backend, 34 frontend)), not a theoretical review of the code alone. Findings are
-reported honestly, including remaining gaps — an audit that finds nothing
-is not credible for a system this size. This is the second pass; the first
-pass's findings are resolved below with how and verified with what test,
-except where noted as still open.
+Findings come from running the system (real Postgres, real server) and reproducing each issue before fixing it. Current status: 92 backend and 36 frontend tests pass, `tsc` is clean on both sides.
 
-| Severity | Finding | Impact | Location | Fix | Status |
-|---|---|---|---|---|---|
-| ~~Medium~~ | ~~Export cleanup function existed but was never scheduled~~ | ~~Expired exports would linger on disk~~ | `server.ts` | A `setInterval` now runs `deleteExpiredExportFiles` every 15 minutes, plus once at boot | **Fixed** |
-| ~~Medium~~ | ~~Rate limiting used only an in-memory store~~ | ~~Wrong effective limit once horizontally scaled~~ | `middleware/rateLimit.ts` | Set `REDIS_URL` and every limiter automatically switches to a shared `RedisStore`; falls back to in-memory when unset | **Fixed** (verified: typechecks and runs with `REDIS_URL` unset; a real Redis instance wasn't available in this build environment to verify the connected path end-to-end — review before relying on it at scale) |
-| ~~Medium~~ | ~~Verification/reset emails were never actually sent~~ | ~~Broken in any real deployment~~ | `lib/mailer.ts` | Real SMTP send via `nodemailer` when `SMTP_*` is configured; logs the email (with working link) to the console in dev when it isn't, instead of silently doing nothing | **Fixed and verified live** — confirmed the dev-mode console email actually appears with a working link, via `npm test` output and a manual run |
-| ~~Low~~ | ~~No client-side idempotency key; a double-click or retry could duplicate a log~~ | ~~Duplicate food log entries~~ | `logs.service.ts`, `Dashboard.tsx` | **Rebuilt properly, not just patched**: the first attempt at this fix used a select-then-insert check, which is a TOCTOU race under real concurrency — verified by firing two truly simultaneous identical requests, which produced two separate rows. Replaced with a DB-level unique constraint on `(userId, idempotencyKey)`; the key is supplied by the client or deterministically derived server-side from the log's content + a time bucket when omitted, and a constraint violation on the losing concurrent request is caught and returns the winning row | **Fixed and verified**: the same two-simultaneous-request test now returns the same row ID for both, confirmed over 5 repeated runs and once more via raw concurrent `curl` requests (not just the test harness) |
-| ~~Low~~ | ~~No dedicated audit log for admin actions~~ | ~~No tamper-evident admin history~~ | `db/schema.ts: adminAuditLog`, `admin.routes.ts` | Added an `admin_audit_log` table (FK to the admin user is `ON DELETE RESTRICT`, so the trail can't be cascade-deleted by removing the admin account); every admin food-verification action writes a before/after entry | **Fixed**, verified via test |
-| Medium | No real LLM behind the AI provider interface (before this pass) | AI quick-add always returned nothing | `modules/ai/ai.provider.ts` | Implemented `AnthropicAiProvider` calling the real Anthropic API with a strict system prompt, 15s timeout, and defensive JSON parsing. **The untrusted-output handling is unchanged**: whatever the model returns is still re-validated by the same Zod schema before it's ever shown to the user, same as when it was a stub | **Implemented, not independently verified against a live model** — no Anthropic API key was available in this build environment, so this path is confirmed to compile and to fail closed safely (falls back to `{items:[]}` on any error, timeout, or non-JSON response — verified by running `/ai/parse` with no key configured and confirming it returns cleanly rather than crashing), but a real parse was not observed end-to-end. Test before relying on it. |
-| ~~Low~~ | ~~No account-level lockout, only per-IP rate limiting~~ | ~~A distributed attacker could hammer one account~~ | `auth.service.ts: loginUser`, `users.failed_login_attempts / locked_until` | 5 wrong passwords lock sign-in for that account for 15 minutes (atomic SQL increment, so concurrent guesses can't race past the limit). A locked account answers with the *same* message and does the *same* hashing work as a wrong password, so lockout can't be used to discover which emails exist. A correct login resets the counter | **Fixed and verified** (tests: locks at 5 and still refuses the correct password; recovers; scattered typos never lock you out). **Trade-off:** an attacker who knows an email can keep that account locked by repeating bad guesses (a denial-of-service on one user). Mitigated by the short window and the per-IP login limiter; accepted as the standard cost of lockout |
-| ~~Medium~~ | ~~No way to change password, change email, or see/revoke logins~~ | ~~A stolen session or leaked password couldn't be cut off by the user~~ | `account.service.ts`, `/account/*` | Change password (re-authenticates, signs out every OTHER device, emails a notice). Change email (re-authenticates, resets verification, notifies the OLD address). Active-devices list with per-device and "all others" sign-out. Session id (`sid`) is carried in the access token so "this device" is identifiable. Re-auth failures return **403 `INVALID_PASSWORD`**, not 401, so the client can't mistake a typo for an expired session and silently retry the wrong password | **Fixed and verified** (tests incl. cross-user: user B cannot list, see or revoke user A's sessions). **Limit:** a revoked device keeps working until its access token expires (up to 15 minutes); the UI says so |
-| ~~Low~~ | ~~Passwords couldn't be inspected while typing~~ | ~~Typos at sign-up/reset locked people out~~ | `PasswordInput.tsx`, `PasswordStrength.tsx` | Eye toggle (accessible, `aria-pressed`) on every password field; strength meter + live rule checklist on register / reset / change. The meter is guidance only; the server enforces the real rules | **Fixed and verified** (component tests) |
-| ~~Medium~~ | ~~Latent outage: the "log can't be in the future" bound was computed once at server start~~ | ~~After ~24h of uptime every new log would be rejected (400)~~ | all `*.schemas.ts` | Bounds are now evaluated per request (`lib/dates.ts`). Reproduced first (a simulated 3-day-old server rejected a normal log), then fixed | **Fixed and verified** (regression test) |
-| Medium | **No two-factor authentication** | A leaked password alone is enough to sign in | — | TOTP or passkeys, with recovery codes | **Open** (not built) |
-| Low | Sessions list shows the stored IP address | Visible to the signed-in owner only, but it is personal data | `account.service.ts: listSessions` | Drop or coarsen the IP if you'd rather not retain it | **Open** (deliberate; documented here) |
-| Low | Login is allowed before email verification | Unverified accounts can fully use the app | `auth.service.ts: loginUser` | Gate login or specific actions on `emailVerified` if that matters for the product | **Open** (deliberate scope choice) |
-| Informational | Argon2id cost parameters are now configurable (`ARGON2_MEMORY_COST_KB`, `ARGON2_TIME_COST`) but still default to the lower end of OWASP's range | Slightly less resistant to offline brute-force than the higher end | `.env.example` | Raise `ARGON2_MEMORY_COST_KB` if server hardware allows | **Informational**, functional as-is, now at least tunable without a code change |
-| — | CSRF | Unchanged from first pass: bearer-token auth on every state-changing route makes CSRF tokens unnecessary — a cross-site request can't attach the bearer header | app-wide | — | **Mitigated by design** |
-| — | IDOR / broken access control | Unchanged, still verified | all `*.service.ts` | — | **Verified via tests** |
-| — | SQL/NoSQL injection | Unchanged, still verified | — | — | **Verified via test** |
-| — | Historical data integrity | Unchanged, still verified | — | — | **Verified via test** |
-| — | Concurrency safety of food logging | **New this pass**: found and fixed a real TOCTOU race in the first attempt at duplicate-submission protection | `logs.service.ts` | — | **Verified via test, including repeated runs and raw concurrent curl requests** |
+## Fixed in the hardening release
 
-## What changed since the first audit
+| Severity | Finding | Fix |
+|---|---|---|
+| Medium | An old verification link could mark a *changed* email address as verified | Email changes are now pending until the new address's link is opened; outstanding links are invalidated on change; links are claimed atomically so each works once |
+| Medium | Registering revealed whether an email was taken (409); reset/resend timing revealed it too | Register answers identically for new and existing emails (existing owners get a notice email); emails are sent in the background. A small residual difference (one extra DB insert) remains |
+| Medium | Refresh rotation was select-then-update, so concurrent requests could all succeed, and a strict fix would have logged out multi-tab users | Rotation runs in one transaction with a row lock plus a 10 s grace window that only applies while the session still has a live token (so logout cannot be undone) |
+| Medium | Duplicate AI accepts created duplicate logs | The request is claimed atomically inside the transaction; later accepts get 409 |
+| Medium | Malformed JSON / oversized bodies / numeric overflow returned 500 | Mapped to 400 / 413 / 400; overflow is also checked before writing |
+| Low | `PUT /logs/:id` accepted far-future (and pre-2000) times | Same bounds as create |
+| Low | CSV export: cells starting `= + - @` ran as spreadsheet formulas | Neutralised with a leading `'` |
+| Low | Export token in the URL ended up in logs | Sent as `X-Export-Token` header; `token` is redacted from logged URLs and query |
+| Low | Admin self-delete crashed (audit-log FK) | Returns a clear 400; audit trail is preserved |
+| Low | Database failure during auth was reported as 401, which makes clients drop good sessions | Only token problems are 401; DB errors are 500 |
+| Low | App-wide rate limiter was effectively per-IP | Keys on the signed-in user when the token verifies |
+| Low | Password reset left lockout and sibling reset links active | Reset clears lockout and invalidates other reset links |
+| Low | `%` and `_` in food search acted as wildcards | Escaped |
+| Info | Log request id did not match the `x-request-id` header | Same id; graceful-shutdown timeout and unhandled-rejection logging added |
 
-The first audit's "Open" findings weren't left as documentation — five of
-them are now actually fixed, and one (the idempotency fix) went through a
-second iteration after the first fix attempt turned out to have a genuine
-concurrency bug, which is exactly the kind of thing that's worth catching
-before calling something done. Two findings remain deliberately open
-(account lockout, pre-verification login) as scope choices rather than
-oversights, and the new AI provider integration is implemented and fails
-safe, but hasn't been exercised against a live model in this environment.
+## Controls that were already in place
 
-## Not done
+Argon2id hashing; hashed opaque tokens; HttpOnly SameSite refresh cookie; per-account lockout (5 failures, 15 min) with the same response as a wrong password; ownership checks in the service layer; Zod validation that strips unknown fields; DB-level idempotency; append-only goal history and nutrition snapshots; admin audit log; helmet, CORS allow-list, rate limits (Redis-ready).
 
-- No formal third-party penetration test.
-- No dependency vulnerability scan beyond `npm audit` — run it yourself
-  before deploying.
-- No fuzz testing of the AI-output validation boundary.
-- The Redis-backed rate limit store compiles and runs with `REDIS_URL`
-  unset, but wasn't verified against a real Redis instance in this
-  environment — do that before depending on it in a multi-instance deploy.
+## Accepted trade-offs and open items
+
+- **Revoked sessions keep working for up to 15 minutes** (the access-token lifetime); the UI says so.
+- **Lockout can be used to lock one known user out** for 15 minutes. Limited by the per-IP login limiter.
+- **No two-factor authentication.**
+- **Sessions list stores IP addresses** (visible only to the owner).
+- **Login works before email verification** (deliberate scope choice).
+- **Weight-loss guidance:** targets are floored at 1,200 kcal and weight-loss targets are adults-only, but there is no BMI or underweight check.
+- `trust proxy` is set to 1; if you deploy without exactly one reverse proxy in front, change it or `X-Forwarded-For` can be spoofed to dodge IP rate limits.
+- The Anthropic integration and the Redis rate-limit store have not been exercised against the real services.
+- No third-party penetration test; run `npm audit` before deploying.

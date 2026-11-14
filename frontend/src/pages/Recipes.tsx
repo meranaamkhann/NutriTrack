@@ -38,12 +38,12 @@ export function Recipes() {
       ) : recipes.length === 0 ? (
         <EmptyState title="No recipes yet" body="Create one from foods you've already added." />
       ) : (
-        <div className="divide-y divide-line rounded-lg border border-line bg-white">
+        <div className="divide-y divide-line rounded-sm border border-line bg-white">
           {recipes.map((r) => (
             <Link
               key={r.id}
               to={`/recipes/${r.id}`}
-              className="flex items-center justify-between px-4 py-3 hover:bg-paper"
+              className="flex items-center justify-between px-4 py-3 hover:bg-wash"
             >
               <span className="text-sm font-medium text-ink">{r.name}</span>
               <span className="text-xs text-ink-soft">{Number(r.servings)} servings</span>
@@ -137,13 +137,13 @@ function CreateRecipeForm({ onCreated }: { onCreated: () => void }) {
           <Input value={query} onChange={(e) => onQueryChange(e.target.value)} placeholder="search your foods" />
         </Field>
         {results.length > 0 && (
-          <div className="divide-y divide-line rounded-md border border-line">
+          <div className="divide-y divide-line rounded-sm border border-line">
             {results.map((food) => (
               <button
                 type="button"
                 key={food.id}
                 onClick={() => addIngredient(food)}
-                className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-paper"
+                className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-wash"
               >
                 <span>{food.name}</span>
                 <span className="text-ink-soft">{Number(food.calories)} kcal</span>
@@ -169,7 +169,7 @@ function CreateRecipeForm({ onCreated }: { onCreated: () => void }) {
                 <button
                   type="button"
                   onClick={() => removeIngredient(i)}
-                  className="text-xs font-medium text-brick hover:underline"
+                  className="text-xs font-medium text-alert hover:underline"
                 >
                   Remove
                 </button>

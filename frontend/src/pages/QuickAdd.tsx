@@ -82,7 +82,7 @@ export function QuickAdd() {
 
       {items.length > 0 && (
         <div className="mt-6 flex flex-col gap-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">
+          <h2 className="text-base font-extrabold text-ink">
             Review before saving — these are AI estimates
           </h2>
           {items.map((item, i) => (

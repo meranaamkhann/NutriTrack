@@ -38,7 +38,7 @@ export function Login() {
         <Field label="Password">
           <PasswordInput required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </Field>
-        <Link to="/forgot-password" className="-mt-2 self-end text-sm font-medium text-pine">
+        <Link to="/forgot-password" className="-mt-2 self-end text-sm font-bold text-ink underline underline-offset-4">
           Forgot password?
         </Link>
         <Button type="submit" disabled={loading}>
@@ -49,7 +49,7 @@ export function Login() {
         </p>
         <p className="text-center text-sm text-ink-soft">
           New here?{" "}
-          <Link to="/register" className="font-medium text-pine">
+          <Link to="/register" className="font-bold text-ink underline underline-offset-4">
             Create an account
           </Link>
         </p>

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { api, setAccessToken } from "./api";
+import { api, setAccessToken, refreshSession } from "./api";
 
 interface AuthState {
   status: "loading" | "authed" | "guest";
@@ -14,13 +14,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthState["status"]>("loading");
 
   useEffect(() => {
-    api
-      .post<{ accessToken: string }>("/auth/refresh")
-      .then((res) => {
-        setAccessToken(res.accessToken);
-        setStatus("authed");
-      })
-      .catch(() => setStatus("guest"));
+    refreshSession().then((ok) => setStatus(ok ? "authed" : "guest"));
   }, []);
 
   async function login(email: string, password: string) {

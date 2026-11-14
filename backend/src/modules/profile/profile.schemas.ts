@@ -51,7 +51,7 @@ export const goalPreviewSchema = z.object({ body: setupBody });
 export const manualGoalSchema = z.object({
   body: z
     .object({
-      calorieTarget: z.number().min(800, "Targets below 800 kcal aren't supported").max(10000),
+      calorieTarget: z.number().min(1200, "Targets below 1,200 kcal a day aren't supported. Please talk to a doctor or dietitian first.").max(10000),
       proteinG: z.number().min(0).max(1000).optional(),
       carbG: z.number().min(0).max(1500).optional(),
       fatG: z.number().min(0).max(600).optional()

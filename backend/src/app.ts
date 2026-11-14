@@ -26,6 +26,10 @@ import { parseRequestSchema, acceptParseSchema } from "./modules/ai/ai.schemas.j
 import * as aiService from "./modules/ai/ai.service.js";
 import { Router } from "express";
 
+function redactUrl(url: string | undefined): string | undefined {
+  return url?.replace(/([?&]token=)[^&]*/gi, "$1[redacted]");
+}
+
 export function buildApp() {
   const app = express();
 
@@ -33,7 +37,23 @@ export function buildApp() {
   app.set("trust proxy", 1);
 
   app.use(requestId);
-  app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url === "/health" } }));
+  app.use(
+    pinoHttp({
+      logger,
+      // Use the same id the client sees in the x-request-id header, so a
+      // user-reported id can be found in the logs.
+      genReqId: (_req, res) => String(res.getHeader("x-request-id")),
+      // Keep one-time tokens that can travel in a query string out of logs.
+      serializers: {
+        req: (req: { url?: string; query?: Record<string, unknown> }) => ({
+          ...req,
+          url: redactUrl(req.url),
+          query: req.query && "token" in req.query ? { ...req.query, token: "[redacted]" } : req.query
+        })
+      },
+      autoLogging: { ignore: (req) => req.url === "/health" }
+    })
+  );
   app.use(securityHeaders);
   app.use(corsMiddleware);
   app.use(express.json({ limit: "100kb" }));

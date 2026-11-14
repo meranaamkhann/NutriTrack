@@ -41,8 +41,8 @@ function Choice({ selected, onClick, title, hint }: { selected: boolean; onClick
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      className={`rounded-xl border px-4 py-3 text-left transition-colors ${
-        selected ? "border-pine bg-pine-tint" : "border-line bg-white hover:bg-paper"
+      className={`rounded-sm border px-4 py-3 text-left transition-colors ${
+        selected ? "border-ink bg-wash" : "border-line bg-white hover:bg-wash"
       }`}
     >
       <span className="block text-sm font-semibold text-ink">{title}</span>
@@ -73,8 +73,11 @@ export function Setup() {
   const [calories, setCalories] = useState("");
   const [error, setError] = useState("");
   const prefilled = useRef(false);
+  // Don't show the form until saved details have loaded, otherwise the
+  // pre-fill below can land after the user has started typing and wipe it.
   const ready = !profile.isLoading && !weights.isLoading;
 
+  // If they're re-running setup, start from what's already saved.
   useEffect(() => {
     if (prefilled.current || !ready || !profile.data) return;
     prefilled.current = true;
@@ -94,6 +97,7 @@ export function Setup() {
 
   function switchUnit(next: UnitPref) {
     if (next === unit) return;
+    // Convert whatever is already typed so it doesn't silently change meaning.
     const conv = (value: string, toDisplay: (n: number) => number, fromDisplay: (n: number) => number) =>
       value ? String(toDisplay(fromDisplay(Number(value)))) : value;
     setHeight(conv(height, (cm) => cmToDisplay(cm, next), (v) => displayToCm(v, unit)));
@@ -143,7 +147,7 @@ export function Setup() {
     if (!preview.data) return;
     setError("");
     const chosen = Math.round(Number(calories));
-    if (!chosen || chosen < 800 || chosen > 10000) return setError("Enter a daily calorie target between 800 and 10,000.");
+    if (!chosen || chosen < 1200 || chosen > 10000) return setError("Enter a daily calorie target between 1,200 and 10,000.");
     try {
       await completeSetup.mutateAsync(buildInput());
       if (chosen !== Math.round(preview.data.calorieTarget)) await setManual.mutateAsync({ calorieTarget: chosen });
@@ -165,7 +169,7 @@ export function Setup() {
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <LogoMark size={28} />
-          <span className="font-display text-lg font-semibold text-pine-dark">Set up your target</span>
+          <span className="font-display text-lg font-semibold text-ink">Set up your target</span>
         </div>
         <Link to="/" className="text-sm font-medium text-ink-soft hover:text-ink">
           Skip for now
@@ -174,7 +178,7 @@ export function Setup() {
 
       <div className="mb-6 flex gap-2" aria-label={`Step ${step} of 3`}>
         {[1, 2, 3].map((n) => (
-          <div key={n} className={`h-1.5 flex-1 rounded-full ${n <= step ? "bg-pine" : "bg-line"}`} />
+          <div key={n} className={`h-1.5 flex-1 rounded-full ${n <= step ? "bg-ink" : "bg-line"}`} />
         ))}
       </div>
 
@@ -255,22 +259,22 @@ export function Setup() {
                 Estimated from the Mifflin-St Jeor formula. Real needs vary by around 10 to 15%, so treat this as a starting point and adjust if your results say otherwise.
               </p>
             </div>
-            <div className="rounded-xl bg-gradient-to-br from-pine-dark to-pine p-5 text-white">
-              <p className="text-sm text-white/70">Calories per day</p>
+            <div className="rounded-sm border border-line border-t-[12px] border-t-ink bg-white p-5">
+              <p className="text-sm font-bold">Calories per day</p>
               <div className="mt-1 flex items-baseline gap-2">
                 <Input
                   type="number"
                   value={calories}
                   onChange={(e) => setCalories(e.target.value)}
                   aria-label="Daily calorie target"
-                  className="w-36 border-white/30 bg-white/10 font-display text-3xl font-semibold text-white"
+                  className="w-40 font-display text-4xl font-black"
                 />
-                <span className="text-sm text-white/70">kcal</span>
+                <span className="text-sm font-bold">kcal</span>
               </div>
-              <p className="mt-2 text-xs text-white/65">You can change this number. We suggested {kcal(result.calorieTarget)}.</p>
+              <p className="mt-2 text-xs text-ink-soft">You can change this number. We suggested {kcal(result.calorieTarget)}.</p>
             </div>
             {chosenCalories > 0 && chosenCalories < 1200 && (
-              <p className="rounded-lg bg-gold-tint px-3 py-2 text-sm text-ink">
+              <p className="rounded-sm bg-mark-tint px-3 py-2 text-sm text-ink">
                 Eating under 1,200 kcal a day isn't generally recommended without a doctor or dietitian guiding you.
               </p>
             )}
@@ -280,7 +284,7 @@ export function Setup() {
                 ["Carbs", result.carbG],
                 ["Fat", result.fatG]
               ].map(([label, grams]) => (
-                <div key={label as string} className="rounded-lg bg-paper px-3 py-3">
+                <div key={label as string} className="rounded-sm bg-paper px-3 py-3">
                   <dt className="text-xs text-ink-soft">{label}</dt>
                   <dd className="font-display text-lg font-semibold text-ink">{Math.round(grams as number)} g</dd>
                 </div>

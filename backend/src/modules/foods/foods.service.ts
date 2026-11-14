@@ -2,6 +2,7 @@ import { eq, and, or, isNull, ilike, desc } from "drizzle-orm";
 import { db } from "../../db/client.js";
 import { foods, foodLogs, recipeIngredients } from "../../db/schema.js";
 import { AppError } from "../../utils/AppError.js";
+import { escapeLike } from "../../lib/numeric.js";
 
 type FoodInsert = Omit<typeof foods.$inferInsert, "ownerId" | "source" | "verificationStatus">;
 type FoodPatch = Partial<FoodInsert>;
@@ -45,7 +46,7 @@ export async function deleteFood(userId: string, foodId: string) {
 
 export async function searchFoods(userId: string, opts: { q?: string; limit: number }) {
   const ownership = or(eq(foods.ownerId, userId), isNull(foods.ownerId));
-  const where = opts.q ? and(ownership, ilike(foods.name, `%${opts.q}%`)) : ownership;
+  const where = opts.q ? and(ownership, ilike(foods.name, `%${escapeLike(opts.q)}%`)) : ownership;
 
   return db.select().from(foods).where(where).orderBy(foods.name).limit(opts.limit);
 }

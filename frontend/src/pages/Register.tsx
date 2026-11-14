@@ -21,7 +21,14 @@ export function Register() {
     setLoading(true);
     try {
       await register(email, password);
-      await login(email, password);
+      try {
+        await login(email, password);
+      } catch {
+        // register answers the same for new and existing emails, so a failed
+        // sign-in here usually means the account already existed.
+        setError("We couldn't sign you in. If you already have an account, sign in or reset your password instead.");
+        return;
+      }
       navigate("/setup");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong");
@@ -46,7 +53,7 @@ export function Register() {
         </Button>
         <p className="text-center text-sm text-ink-soft">
           Already have an account?{" "}
-          <Link to="/login" className="font-medium text-pine">
+          <Link to="/login" className="font-bold text-ink underline underline-offset-4">
             Log in
           </Link>
         </p>

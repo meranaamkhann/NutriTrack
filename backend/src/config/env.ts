@@ -12,7 +12,6 @@ const schema = z.object({
   CORS_ORIGIN: z.string().min(1),
   EXPORT_STORAGE_DIR: z.string().default("./storage/exports"),
   EXPORT_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().default(15),
-  AI_PROVIDER_API_KEY: z.string().optional().default(""),
   AI_DAILY_REQUEST_LIMIT_PER_USER: z.coerce.number().int().positive().default(30),
   RATE_LIMIT_LOGIN_MAX: z.coerce.number().int().positive().default(10),
   RATE_LIMIT_REGISTER_MAX: z.coerce.number().int().positive().default(5),

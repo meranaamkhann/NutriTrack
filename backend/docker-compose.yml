@@ -6,7 +6,9 @@ services:
       POSTGRES_PASSWORD: nutritrack
       POSTGRES_DB: nutritrack
     ports:
-      - "5434:5432"
+      # Host port is configurable: POSTGRES_PORT=5434 docker compose up -d
+      # (then use the same port in DATABASE_URL). Defaults to 5432.
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - nutritrack_pg:/var/lib/postgresql/data
 volumes:

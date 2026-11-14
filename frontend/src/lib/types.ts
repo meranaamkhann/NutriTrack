@@ -102,6 +102,7 @@ export interface AiParsedItem {
 export interface AccountInfo {
   id: string;
   email: string;
+  pendingEmail?: string | null;
   emailVerified: boolean;
   createdAt: string;
   role: "USER" | "ADMIN";

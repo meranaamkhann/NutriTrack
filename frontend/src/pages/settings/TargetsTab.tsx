@@ -59,7 +59,7 @@ export function TargetsTab() {
       ) : (
         <Panel>
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Current target</h2>
+            <h2 className="text-base font-extrabold text-ink">Current target</h2>
             {goal && <Badge tone={goal.source === "MANUAL" ? "warn" : "good"}>{goal.source === "MANUAL" ? "Your own number" : "Calculated estimate"}</Badge>}
           </div>
           {goal ? (
@@ -94,17 +94,17 @@ export function TargetsTab() {
       )}
 
       <Panel>
-        <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-ink-soft">Set my own target</h2>
+        <h2 className="mb-1 text-base font-extrabold text-ink">Set my own target</h2>
         <p className="mb-4 text-sm text-ink-soft">Already know your number from a dietitian or coach? Enter it directly.</p>
         <form onSubmit={saveManual} className="flex flex-col gap-4">
           <Field label="Calories per day">
-            <Input type="number" min="800" max="10000" step="10" required value={calories} onChange={(e) => setCalories(e.target.value)} className="w-40" />
+            <Input type="number" min="1200" max="10000" step="10" required value={calories} onChange={(e) => setCalories(e.target.value)} className="w-40" />
           </Field>
           {cal > 0 && cal < 1200 && (
-            <p className="rounded-lg bg-gold-tint px-3 py-2 text-sm text-ink">Below about 1,200 kcal a day isn't generally recommended without medical supervision.</p>
+            <p className="rounded-sm bg-mark-tint px-3 py-2 text-sm text-ink">Below about 1,200 kcal a day isn't generally recommended without medical supervision.</p>
           )}
           <label className="flex items-center gap-2 text-sm text-ink">
-            <input type="checkbox" checked={custom} onChange={(e) => setCustom(e.target.checked)} className="h-4 w-4 accent-pine" />
+            <input type="checkbox" checked={custom} onChange={(e) => setCustom(e.target.checked)} className="h-4 w-4 accent-ink" />
             I want to set my own protein, carb and fat grams
           </label>
           {custom ? (
@@ -119,12 +119,12 @@ export function TargetsTab() {
             <p className="text-xs text-ink-soft">Macros will be split 30% protein, 40% carbs, 30% fat.</p>
           )}
           {macroMismatch && (
-            <p className="rounded-lg bg-gold-tint px-3 py-2 text-sm text-ink">
+            <p className="rounded-sm bg-mark-tint px-3 py-2 text-sm text-ink">
               Those macros add up to about {kcal(macroKcal)} kcal, which differs from your {kcal(cal)} kcal target.
             </p>
           )}
           <div>
-            <Button type="submit" disabled={manual.isPending || !(cal >= 800)}>
+            <Button type="submit" disabled={manual.isPending || !(cal >= 1200)}>
               {manual.isPending ? "Saving…" : "Save my target"}
             </Button>
           </div>
@@ -133,7 +133,7 @@ export function TargetsTab() {
 
       {(history.data?.length ?? 0) > 1 && (
         <Panel>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-soft">Target history</h2>
+          <h2 className="mb-3 text-base font-extrabold text-ink">Target history</h2>
           <ul className="divide-y divide-line">
             {history.data!.map((g) => (
               <li key={g.id} className="flex items-center justify-between py-2.5 text-sm">

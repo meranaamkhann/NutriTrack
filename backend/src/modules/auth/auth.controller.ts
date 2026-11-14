@@ -23,15 +23,13 @@ function clearRefreshCookie(res: Response) {
 
 export const register = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
-  const { user, verifyToken } = await authService.registerUser(email, password);
+  const { verifyToken } = await authService.registerUser(email, password);
 
-  // In production this token is emailed, never returned in the API response.
-  const devOnlyVerifyToken = isProd ? undefined : verifyToken;
-
+  // Same response whether or not the address already had an account. In
+  // production the verification token is emailed, never returned here.
   res.status(201).json({
-    id: user.id,
-    email: user.email,
-    devOnlyVerifyToken
+    message: "If this address can be registered, we've emailed you a link to verify it.",
+    devOnlyVerifyToken: isProd ? undefined : verifyToken
   });
 });
 

@@ -39,9 +39,11 @@ export function Icon({ name, size = 20, className }: { name: IconName; size?: nu
 export function LogoMark({ size = 32 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-      <rect width="32" height="32" rx="9" fill="#1f5c4e" />
-      <path d="M9 23c0-8 5-13 14-13 0 9-5 14-14 14z" fill="#e0b25a" />
-      <path d="M9 23c3-4 6-7 10-9" stroke="#1f5c4e" strokeWidth="1.8" strokeLinecap="round" fill="none" />
+      <rect width="32" height="32" fill="#000" />
+      <rect x="6" y="6" width="20" height="6" fill="#ffe14d" />
+      <rect x="6" y="15" width="20" height="2" fill="#fff" />
+      <rect x="6" y="20" width="14" height="2" fill="#fff" />
+      <rect x="6" y="25" width="17" height="2" fill="#fff" />
     </svg>
   );
 }

@@ -17,14 +17,13 @@ import {
   users
 } from "../../db/schema.js";
 import { AppError } from "../../utils/AppError.js";
-import { hashPassword, verifyCurrentPassword } from "../auth/auth.service.js";
+import { hashPassword, verifyCurrentPassword, invalidateOutstandingTokens } from "../auth/auth.service.js";
 import { generateOpaqueToken, hashToken } from "../../lib/crypto.js";
 import { describeDevice } from "../../lib/userAgent.js";
-import { logger } from "../../lib/logger.js";
 import {
   emailChangedNoticeEmail,
   passwordChangedEmail,
-  sendEmail,
+  sendEmailInBackground,
   verificationEmail
 } from "../../lib/mailer.js";
 
@@ -36,11 +35,14 @@ export async function deleteAccount(userId: string, password: string): Promise<v
   const passwordOk = await verifyCurrentPassword(userId, password);
   if (!passwordOk) throw new AppError("INVALID_PASSWORD", "Incorrect password");
 
-  const jobs = await db.select().from(exportJobs).where(eq(exportJobs.userId, userId));
-  for (const job of jobs) {
-    if (job.filePath) await rm(job.filePath, { force: true });
+  const [account] = await db.select({ role: users.role }).from(users).where(eq(users.id, userId)).limit(1);
+  if (account?.role === "ADMIN") {
+    // Audit-log rows point at the admin who made the change and must outlive
+    // it, so an admin account can't be deleted until the role is removed.
+    throw new AppError("BAD_REQUEST", "Admin accounts can't be deleted. Ask another admin to remove your admin role first.");
   }
 
+  const jobs = await db.select().from(exportJobs).where(eq(exportJobs.userId, userId));
   const ownedRecipes = await db.select({ id: recipes.id }).from(recipes).where(eq(recipes.ownerId, userId));
   const recipeIds = ownedRecipes.map((r) => r.id);
 
@@ -61,11 +63,24 @@ export async function deleteAccount(userId: string, password: string): Promise<v
     await tx.delete(verificationTokens).where(eq(verificationTokens.userId, userId));
     await tx.delete(users).where(eq(users.id, userId));
   });
+
+  // Files go only after the database delete has committed, so a failed
+  // delete can't leave an account whose exports are already gone.
+  for (const job of jobs) {
+    if (job.filePath) await rm(job.filePath, { force: true });
+  }
 }
 
 export async function getAccountInfo(userId: string) {
   const [user] = await db
-    .select({ id: users.id, email: users.email, emailVerified: users.emailVerified, createdAt: users.createdAt, role: users.role })
+    .select({
+      id: users.id,
+      email: users.email,
+      pendingEmail: users.pendingEmail,
+      emailVerified: users.emailVerified,
+      createdAt: users.createdAt,
+      role: users.role
+    })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
@@ -107,12 +122,14 @@ export async function changePassword(
   await revokeOtherSessions(userId, currentSessionId);
 
   if (user) {
-    await sendEmail({ to: user.email, ...passwordChangedEmail() }).catch((err) =>
-      logger.error({ err }, "password-changed notice failed to send")
-    );
+    sendEmailInBackground({ to: user.email, ...passwordChangedEmail() }, "password-changed notice");
   }
 }
 
+// The login email does NOT change here. The new address is stored as pending
+// and only takes over once its owner opens the verification link, so a typo
+// can't lock someone out and a hijacked session can't silently move the
+// account somewhere the owner can't see.
 export async function changeEmail(userId: string, newEmail: string, password: string) {
   if (!(await verifyCurrentPassword(userId, password))) {
     throw new AppError("INVALID_PASSWORD", "Password is incorrect");
@@ -125,26 +142,23 @@ export async function changeEmail(userId: string, newEmail: string, password: st
   const [taken] = await db.select({ id: users.id }).from(users).where(eq(users.email, newEmail)).limit(1);
   if (taken) throw new AppError("CONFLICT", "That email is already in use");
 
-  await db.update(users).set({ email: newEmail, emailVerified: false }).where(eq(users.id, userId));
-
   const token = generateOpaqueToken();
-  await db.insert(verificationTokens).values({
-    userId,
-    tokenHash: hashToken(token),
-    purpose: "EMAIL_VERIFY",
-    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+  await db.transaction(async (tx) => {
+    await tx.update(users).set({ pendingEmail: newEmail }).where(eq(users.id, userId));
+    // Links sent for any earlier address must not work any more.
+    await invalidateOutstandingTokens(tx, userId, "EMAIL_VERIFY");
+    await tx.insert(verificationTokens).values({
+      userId,
+      tokenHash: hashToken(token),
+      purpose: "EMAIL_VERIFY",
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+    });
   });
 
-  await sendEmail({ to: newEmail, ...verificationEmail(token) }).catch((err) =>
-    logger.error({ err }, "verification email for new address failed to send")
-  );
-  // The old address is told too, so a hijacked session can't quietly move
-  // the account somewhere the owner won't notice.
-  await sendEmail({ to: current.email, ...emailChangedNoticeEmail(newEmail) }).catch((err) =>
-    logger.error({ err }, "email-changed notice failed to send")
-  );
+  sendEmailInBackground({ to: newEmail, ...verificationEmail(token) }, "verification email for new address");
+  sendEmailInBackground({ to: current.email, ...emailChangedNoticeEmail(newEmail) }, "email-change notice");
 
-  return getAccountInfo(userId);
+  return { account: await getAccountInfo(userId), verifyToken: token };
 }
 
 export async function listSessions(userId: string, currentSessionId?: string) {

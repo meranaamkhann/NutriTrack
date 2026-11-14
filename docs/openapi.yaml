@@ -84,9 +84,70 @@ paths:
                 email: { type: string, format: email }
                 password: { type: string, minLength: 10 }
       responses:
-        "201": { description: Account created }
-        "409": { description: Email already registered }
+        "201":
+          description: >
+            Same response whether or not the email was already registered (no account
+            enumeration). New accounts get a verification link by email; existing owners get a notice.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  devOnlyVerifyToken: { type: string, description: "Non-production only" }
         "429": { description: Rate limited }
+
+  /auth/verify-email:
+    post:
+      summary: Use a verification link. Also completes a pending email change.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        "200": { description: Verified }
+        "400": { description: Invalid, used or expired token }
+        "409": { description: The new address was taken by another account meanwhile }
+
+  /auth/verify-email/resend:
+    post:
+      summary: Resend the verification link (always 200, no account enumeration)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        "200": { description: Generic confirmation }
+
+  /auth/password-reset/confirm:
+    post:
+      summary: Set a new password with a reset token (clears lockout, signs out all devices)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, newPassword]
+              properties:
+                token: { type: string }
+                newPassword: { type: string, minLength: 10 }
+      responses:
+        "200": { description: Password changed }
+        "400": { description: Invalid, used or expired token }
 
   /auth/login:
     post:
@@ -120,7 +181,7 @@ paths:
       security: []
       responses:
         "200": { description: New access token issued }
-        "401": { description: Invalid, expired, or reused session }
+        "401": { description: Invalid, expired, or reused session (a token rotated away more than 10 s ago and replayed revokes the whole session) }
 
   /auth/logout:
     post:
@@ -281,6 +342,11 @@ paths:
       responses:
         "200": { description: Recipe detail }
         "404": { description: Not found or not yours }
+    put:
+      summary: Replace a recipe's name, servings and ingredients (past diary entries keep their snapshot)
+      responses:
+        "200": { description: Updated }
+        "404": { description: Not found or not yours }
     delete:
       summary: Delete a recipe you own
       responses:
@@ -369,9 +435,10 @@ paths:
           name: id
           required: true
           schema: { type: string, format: uuid }
-        - in: query
-          name: token
+        - in: header
+          name: X-Export-Token
           required: true
+          description: Token returned when the export was created. (`?token=` still works but ends up in URLs and logs.)
           schema: { type: string }
       responses:
         "200": { description: File contents }
@@ -392,7 +459,17 @@ paths:
                 password: { type: string }
       responses:
         "204": { description: Account and all associated data deleted }
-        "401": { description: Incorrect password }
+        "400": { description: Admin accounts can't be deleted until the admin role is removed }
+        "403": { description: Incorrect password }
+
+  /admin/audit-log:
+    get:
+      summary: (Admin only) audit log, newest first
+      parameters:
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+        - { in: query, name: offset, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        "200": { description: Entries }
 
   /admin/foods/{id}/verify:
     put:
@@ -468,7 +545,7 @@ paths:
         "403": { description: Current password incorrect (INVALID_PASSWORD) }
   /account/change-email:
     post:
-      summary: Change email (re-authenticates, resets verification, notifies the old address)
+      summary: Start an email change. The new address is stored as pendingEmail and only becomes the login email once its verification link is opened; the old address is notified.
       responses:
         "200": { description: Updated account }
         "403": { description: Password incorrect }

@@ -84,11 +84,20 @@ describe("change email", () => {
 
     const ok = await request(app).post("/account/change-email").set(bearer(a.token)).send({ newEmail: fresh, password: a.password });
     expect(ok.status).toBe(200);
-    expect(ok.body.email).toBe(fresh);
-    expect(ok.body.emailVerified).toBe(false);
+    // Nothing changes until the new address is proven.
+    expect(ok.body.email).toBe(a.email);
+    expect(ok.body.pendingEmail).toBe(fresh);
+    expect((await request(app).post("/auth/login").send({ email: a.email, password: a.password })).status).toBe(200);
+    expect((await request(app).post("/auth/login").send({ email: fresh, password: a.password })).status).toBe(401);
 
+    const verify = await request(app).post("/auth/verify-email").send({ token: ok.body.devOnlyVerifyToken });
+    expect(verify.status).toBe(200);
     expect((await request(app).post("/auth/login").send({ email: fresh, password: a.password })).status).toBe(200);
     expect((await request(app).post("/auth/login").send({ email: a.email, password: a.password })).status).toBe(401);
+    const me = await request(app).get("/account/me").set(bearer(a.token));
+    expect(me.body.email).toBe(fresh);
+    expect(me.body.emailVerified).toBe(true);
+    expect(me.body.pendingEmail).toBeNull();
   });
 });
 

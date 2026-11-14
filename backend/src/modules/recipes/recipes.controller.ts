@@ -6,6 +6,11 @@ export const createRecipe = asyncHandler(async (req, res) => {
   res.status(201).json(recipe);
 });
 
+export const updateRecipe = asyncHandler(async (req, res) => {
+  const recipe = await service.updateRecipe(req.user!.id, req.params.id, req.body);
+  res.status(200).json(recipe);
+});
+
 export const getRecipe = asyncHandler(async (req, res) => {
   const result = await service.getRecipeWithNutrition(req.user!.id, req.params.id);
   res.status(200).json(result);

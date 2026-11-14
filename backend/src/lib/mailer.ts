@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import { env, isProd } from "../config/env.js";
 import { logger } from "./logger.js";
+import { escapeHtml } from "./numeric.js";
 
 const hasSmtpConfig = Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASSWORD);
 
@@ -66,6 +67,21 @@ export function emailChangedNoticeEmail(newEmail: string) {
   return {
     subject: "Your NutriTrack email address was changed",
     text: `The email on your NutriTrack account was changed to ${newEmail}.\n\nIf this wasn't you, contact support and reset your password right away.`,
-    html: `<p>The email on your NutriTrack account was changed to <strong>${newEmail}</strong>.</p><p>If this wasn't you, contact support and reset your password right away.</p>`
+    html: `<p>The email on your NutriTrack account was changed to <strong>${escapeHtml(newEmail)}</strong>.</p><p>If this wasn't you, contact support and reset your password right away.</p>`
   };
+}
+
+export function accountAlreadyExistsEmail() {
+  const link = `${env.APP_BASE_URL}/forgot-password`;
+  return {
+    subject: "Someone tried to create a NutriTrack account with your email",
+    text: `Someone just tried to sign up with this email, but you already have an account.\n\nIf it was you, sign in, or reset your password here: ${link}\n\nIf it wasn't you, you can ignore this email.`,
+    html: `<p>Someone just tried to sign up with this email, but you already have an account.</p><p>If it was you, sign in, or <a href="${link}">reset your password</a>.</p><p>If it wasn't you, you can ignore this email.</p>`
+  };
+}
+
+// Sends without making the caller wait, so how long delivery takes can't be
+// used to tell an existing account from a missing one. Failures are logged.
+export function sendEmailInBackground(input: SendEmailInput, label: string): void {
+  void sendEmail(input).catch((err) => logger.error({ err }, `${label} failed to send`));
 }

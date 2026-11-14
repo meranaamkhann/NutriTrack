@@ -30,7 +30,7 @@ export function ForgotPassword() {
         <p className="text-sm text-ink-soft">
           If an account exists for <strong>{email}</strong>, a reset link is on its way. It expires in 1 hour.
         </p>
-        <Link to="/login" className="mt-6 inline-block text-sm font-medium text-pine">
+        <Link to="/login" className="mt-6 inline-block text-sm font-bold text-ink underline underline-offset-4">
           Back to login
         </Link>
       </AuthLayout>
@@ -47,7 +47,7 @@ export function ForgotPassword() {
         <Button type="submit" disabled={loading}>
           {loading ? "Sending…" : "Send reset link"}
         </Button>
-        <Link to="/login" className="text-center text-sm font-medium text-pine">
+        <Link to="/login" className="text-center text-sm font-bold text-ink underline underline-offset-4">
           Back to login
         </Link>
       </form>

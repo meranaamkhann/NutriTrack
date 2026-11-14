@@ -19,7 +19,7 @@ function EmailPanel() {
   const [resending, setResending] = useState(false);
 
   if (account.isLoading || !account.data) return <PanelSkeleton />;
-  const { email, emailVerified, createdAt } = account.data;
+  const { email, pendingEmail, emailVerified, createdAt } = account.data;
 
   async function resend() {
     setResending(true);
@@ -43,7 +43,7 @@ function EmailPanel() {
           setEditing(false);
           setNewEmail("");
           setPassword("");
-          push("success", "Email changed. Check the new address to verify it.");
+          push("success", "Check your new address for a link. Your email changes once you open it.");
         },
         onError: (err) => setError(err instanceof ApiError ? err.message : "Couldn't change your email.")
       }
@@ -59,7 +59,12 @@ function EmailPanel() {
       </div>
       <p className="mt-1 text-xs text-ink-soft">Member since {new Date(createdAt).toLocaleDateString()}</p>
 
-      {!emailVerified && (
+      {pendingEmail && (
+        <p className="mt-2 text-sm text-ink-soft">
+          Waiting for you to confirm <span className="font-medium text-ink">{pendingEmail}</span>. Until you open the link we emailed there, you keep signing in with {email}.
+        </p>
+      )}
+      {(!emailVerified || pendingEmail) && (
         <Button variant="secondary" onClick={resend} disabled={resending} className="mt-4">
           {resending ? "Sending…" : "Resend verification email"}
         </Button>
@@ -67,7 +72,7 @@ function EmailPanel() {
 
       {!editing ? (
         <div className="mt-4">
-          <Button variant="ghost" onClick={() => setEditing(true)} className="px-0 text-pine hover:bg-transparent hover:underline">
+          <Button variant="ghost" onClick={() => setEditing(true)} className="px-0 text-ink hover:bg-transparent hover:underline">
             Change email address
           </Button>
         </div>
@@ -105,7 +110,7 @@ function ExportPanel() {
     setBusy(format);
     try {
       const job = await api.post<{ jobId: string; token: string }>("/export", { format });
-      await api.downloadBlob(`/export/${job.jobId}`, { token: job.token }, `nutritrack-export.${format.toLowerCase()}`);
+      await api.downloadBlob(`/export/${job.jobId}`, `nutritrack-export.${format.toLowerCase()}`, { "X-Export-Token": job.token });
       push("success", `${format} export downloaded.`);
     } catch (err) {
       push("error", err instanceof ApiError ? err.message : "Export failed.");
@@ -155,8 +160,8 @@ function DeletePanel() {
   }
 
   return (
-    <Panel className="border-brick/30">
-      <h2 className="font-display text-base font-semibold text-brick">Delete account</h2>
+    <Panel className="border-alert/30">
+      <h2 className="font-display text-base font-semibold text-alert">Delete account</h2>
       <p className="mt-1 text-sm text-ink-soft">
         Permanently deletes your profile, diary, recipes, foods and weight history. This can't be undone, so download your data first if you want a copy.
       </p>

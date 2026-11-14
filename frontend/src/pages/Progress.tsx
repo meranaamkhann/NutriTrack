@@ -50,7 +50,7 @@ export function Progress() {
                     />
                   )}
                   <div
-                    className={`w-full rounded-t-sm ${over ? "bg-brick" : "bg-gold"}`}
+                    className={`w-full rounded-t-sm ${over ? "bg-alert" : "bg-mark"}`}
                     style={{ height: `${heightPct}%`, minHeight: day.totals.calories > 0 ? "4px" : "0" }}
                     title={`${Math.round(day.totals.calories)} kcal`}
                   />

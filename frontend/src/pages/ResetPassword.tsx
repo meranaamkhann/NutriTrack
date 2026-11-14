@@ -34,7 +34,7 @@ export function ResetPassword() {
     return (
       <AuthLayout title="Link not valid">
         <p className="text-sm text-ink-soft">This link is missing its reset token.</p>
-        <Link to="/forgot-password" className="mt-4 inline-block text-sm font-medium text-pine">
+        <Link to="/forgot-password" className="mt-4 inline-block text-sm font-bold text-ink underline underline-offset-4">
           Request a new link
         </Link>
       </AuthLayout>

@@ -18,10 +18,23 @@ deleteExpiredExportFiles().catch((err) => logger.error({ err }, "export cleanup 
 async function shutdown(signal: string) {
   logger.info(`received ${signal}, shutting down`);
   clearInterval(exportCleanupInterval);
-  server.close();
+  // Don't hang forever on idle keep-alive connections.
+  const force = setTimeout(() => {
+    logger.warn("shutdown timed out, exiting");
+    process.exit(1);
+  }, 10_000);
+  force.unref();
+  await new Promise<void>((resolve) => server.close(() => resolve()));
+  server.closeIdleConnections?.();
   await pool.end();
   process.exit(0);
 }
+
+process.on("unhandledRejection", (reason) => logger.error({ err: reason }, "unhandled promise rejection"));
+process.on("uncaughtException", (err) => {
+  logger.fatal({ err }, "uncaught exception");
+  void shutdown("uncaughtException");
+});
 
 process.on("SIGTERM", () => void shutdown("SIGTERM"));
 process.on("SIGINT", () => void shutdown("SIGINT"));

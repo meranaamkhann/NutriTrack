@@ -40,7 +40,7 @@ export function EntryRow({ entry, onRemove }: { entry: DiaryEntry; onRemove: () 
           className="w-24"
         />
         <span className="text-xs text-ink-soft">{unitLabel(entry.unit)}</span>
-        <button onClick={save} disabled={update.isPending} className="text-xs font-medium text-pine hover:underline">
+        <button onClick={save} disabled={update.isPending} className="text-xs font-medium text-ink underline underline-offset-2 hover:bg-mark">
           {update.isPending ? "Saving…" : "Save"}
         </button>
         <button
@@ -48,7 +48,7 @@ export function EntryRow({ entry, onRemove }: { entry: DiaryEntry; onRemove: () 
             setEditing(false);
             setAmount(String(entry.amount));
           }}
-          className="text-xs font-medium text-ink-soft hover:underline"
+          className="text-xs font-medium text-ink-soft underline underline-offset-2 hover:bg-mark"
         >
           Cancel
         </button>
@@ -58,9 +58,9 @@ export function EntryRow({ entry, onRemove }: { entry: DiaryEntry; onRemove: () 
 
   return (
     <div className="flex items-center justify-between gap-3 px-4 py-3">
-      <div className="min-w-0">
-        <p className="flex items-center gap-2 truncate text-sm font-medium text-ink">
-          <span className="truncate">{entry.name}</span>
+      <div className="min-w-0 flex-1">
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-ink">
+          <span>{entry.name}</span>
           {entry.kind === "RECIPE" && <Badge>Recipe</Badge>}
           {entry.source === "AI_ESTIMATED" && <Badge tone="warn">AI estimate</Badge>}
         </p>
@@ -69,12 +69,12 @@ export function EntryRow({ entry, onRemove }: { entry: DiaryEntry; onRemove: () 
           {Math.round(entry.fatG)}
         </p>
       </div>
-      <div className="flex shrink-0 items-center gap-3">
-        <span className="text-sm font-medium text-ink">{kcal(entry.calories)} kcal</span>
-        <button onClick={() => setEditing(true)} className="text-xs font-medium text-pine hover:underline">
+      <div className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3">
+        <span className="text-sm font-bold text-ink">{kcal(entry.calories)} kcal</span>
+        <button onClick={() => setEditing(true)} className="text-xs font-medium text-ink underline underline-offset-2 hover:bg-mark">
           Edit
         </button>
-        <button onClick={onRemove} className="text-xs font-medium text-brick hover:underline">
+        <button onClick={onRemove} className="text-xs font-medium text-alert underline underline-offset-2 hover:bg-mark">
           Remove
         </button>
       </div>

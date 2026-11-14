@@ -21,6 +21,7 @@ const GOAL_ADJUSTMENT_KCAL: Record<GoalType, number> = {
 };
 
 const MIN_CALORIE_TARGET = 1200;
+const ADULT_AGE = 18;
 
 const BOUNDS = {
   weightKg: { min: 20, max: 400 },
@@ -47,6 +48,12 @@ export function validateCalcInput(input: CalcInput): void {
   assertInRange(input.weightKg, "Weight (kg)", BOUNDS.weightKg.min, BOUNDS.weightKg.max);
   assertInRange(input.heightCm, "Height (cm)", BOUNDS.heightCm.min, BOUNDS.heightCm.max);
   assertInRange(input.ageYears, "Age", BOUNDS.ageYears.min, BOUNDS.ageYears.max);
+  if (input.goal === "LOSE" && input.ageYears < ADULT_AGE) {
+    throw new AppError(
+      "BAD_REQUEST",
+      "Weight-loss targets are only calculated for adults (18+). Choose Maintain, or ask a doctor before cutting calories."
+    );
+  }
 }
 
 export function calculateBmr(input: CalcInput): number {

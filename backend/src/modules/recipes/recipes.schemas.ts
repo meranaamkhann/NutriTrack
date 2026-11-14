@@ -17,6 +17,11 @@ export const createRecipeSchema = z.object({
   })
 });
 
+export const updateRecipeSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  body: createRecipeSchema.shape.body
+});
+
 export const recipeIdParamSchema = z.object({
   params: z.object({ id: z.string().uuid() })
 });

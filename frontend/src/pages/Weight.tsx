@@ -98,7 +98,7 @@ export function Weight() {
       ) : entries.length === 0 ? (
         <EmptyState title="No weight entries yet" body="Log your weight above to start tracking trends." />
       ) : (
-        <div className="divide-y divide-line rounded-lg border border-line bg-white">
+        <div className="divide-y divide-line rounded-sm border border-line bg-white">
           {entries.map((entry) => (
             <div key={entry.id} className="flex items-center justify-between px-4 py-3">
               <span className="text-sm text-ink">{new Date(entry.recordedAt).toLocaleDateString()}</span>
@@ -108,7 +108,7 @@ export function Weight() {
                 </span>
                 <button
                   onClick={() => remove(entry.id)}
-                  className="text-xs font-medium text-brick hover:underline"
+                  className="text-xs font-medium text-alert hover:underline"
                 >
                   Remove
                 </button>

@@ -215,6 +215,17 @@ export function useCreateRecipe() {
   });
 }
 
+export function useUpdateRecipe(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Record<string, unknown>) => api.put<Recipe>(`/recipes/${id}`, input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.recipes });
+      qc.invalidateQueries({ queryKey: qk.recipe(id) });
+    }
+  });
+}
+
 export function useDeleteRecipe() {
   const qc = useQueryClient();
   return useMutation({

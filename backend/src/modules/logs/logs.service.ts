@@ -4,6 +4,7 @@ import { db } from "../../db/client.js";
 import { foodLogs, foods, profiles } from "../../db/schema.js";
 import { AppError } from "../../utils/AppError.js";
 import { localDateInTimezone } from "../../lib/timezone.js";
+import { assertSnapshotsFit } from "../../lib/numeric.js";
 import { parseLocalDate } from "../../lib/dates.js";
 
 type MealType = (typeof foodLogs.$inferSelect)["meal"];
@@ -35,6 +36,12 @@ export async function createFoodLog(userId: string, input: CreateLogInput) {
   const [profile] = await db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1);
   const timezone = profile?.timezone ?? "UTC";
   const ratio = input.quantity / Number(food.servingSize);
+  assertSnapshotsFit([
+    Number(food.calories) * ratio,
+    Number(food.proteinG) * ratio,
+    Number(food.carbG) * ratio,
+    Number(food.fatG) * ratio
+  ]);
 
   try {
     const [created] = await db
@@ -96,6 +103,7 @@ export async function updateFoodLog(
     data.proteinGSnapshot = round2(Number(existing.proteinGSnapshot) * ratio);
     data.carbGSnapshot = round2(Number(existing.carbGSnapshot) * ratio);
     data.fatGSnapshot = round2(Number(existing.fatGSnapshot) * ratio);
+    assertSnapshotsFit([data.caloriesSnapshot, data.proteinGSnapshot, data.carbGSnapshot, data.fatGSnapshot]);
   }
 
   if (patch.loggedAt !== undefined) {

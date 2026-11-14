@@ -49,7 +49,7 @@ export function Foods() {
       ) : foods.length === 0 ? (
         <EmptyState title="No foods found" body="Try a different search, or create your own food." />
       ) : (
-        <div className="divide-y divide-line rounded-lg border border-line bg-white">
+        <div className="divide-y divide-line rounded-sm border border-line bg-white">
           {foods.map((food) => (
             <div key={food.id} className="flex items-center justify-between px-4 py-3">
               <div>

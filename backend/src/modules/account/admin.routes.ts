@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { Router } from "express";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { requireAuth, requireRole } from "../../middleware/auth.js";
 import { validate } from "../../middleware/validate.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
@@ -38,10 +38,19 @@ adminRouter.put(
   })
 );
 
+const auditLogQuerySchema = z.object({
+  query: z.object({
+    limit: z.coerce.number().int().min(1).max(500).default(100),
+    offset: z.coerce.number().int().min(0).default(0)
+  })
+});
+
 adminRouter.get(
   "/audit-log",
-  asyncHandler(async (_req, res) => {
-    const entries = await db.select().from(adminAuditLog).orderBy(adminAuditLog.createdAt);
+  validate(auditLogQuerySchema),
+  asyncHandler(async (req, res) => {
+    const { limit, offset } = req.query as unknown as { limit: number; offset: number };
+    const entries = await db.select().from(adminAuditLog).orderBy(desc(adminAuditLog.createdAt)).limit(limit).offset(offset);
     res.status(200).json(entries);
   })
 );

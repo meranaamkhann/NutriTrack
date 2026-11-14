@@ -24,10 +24,8 @@ const NAV_ITEMS: NavItem[] = [
 // on phones it is reached from the "Quick add" button on the Diary.
 const DESKTOP_ONLY: NavItem[] = [{ to: "/quick-add", label: "Quick add", icon: "zap" }];
 
-function linkClass(isActive: boolean) {
-  return `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-    isActive ? "bg-pine-tint text-pine-dark" : "text-ink-soft hover:bg-paper"
-  }`;
+function topLinkClass(isActive: boolean) {
+  return `px-2.5 py-1.5 text-sm font-bold ${isActive ? "bg-mark text-ink" : "text-ink hover:bg-wash"}`;
 }
 
 export function AppShell() {
@@ -35,60 +33,46 @@ export function AppShell() {
   const account = useAccount();
   const profile = useProfile();
   const label = profile.data?.displayName?.trim() || account.data?.email || "";
-  const initial = label.charAt(0).toUpperCase() || "?";
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-line bg-white px-4 py-6 md:flex">
-        <div className="flex items-center gap-2.5 px-2">
-          <LogoMark size={30} />
-          <span className="font-display text-lg font-semibold text-pine-dark">NutriTrack</span>
-        </div>
-        <nav className="mt-8 flex flex-col gap-1" aria-label="Main">
-          {NAV_ITEMS.map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => linkClass(isActive)}>
-              <Icon name={item.icon} size={18} />
-              {item.label}
-            </NavLink>
-          ))}
-          <div className="my-2 border-t border-line" />
-          {DESKTOP_ONLY.map((item) => (
-            <NavLink key={item.to} to={item.to} className={({ isActive }) => linkClass(isActive)}>
-              <Icon name={item.icon} size={18} />
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-
-        <div className="mt-auto border-t border-line pt-4">
-          <div className="mb-2 flex items-center gap-3 px-2">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-pine text-sm font-semibold text-white">{initial}</span>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-ink">{label || "Your account"}</p>
-              {profile.data?.displayName && account.data && <p className="truncate text-xs text-ink-soft">{account.data.email}</p>}
-            </div>
+    <div className="flex min-h-screen flex-col">
+      <header className="border-b-[6px] border-ink bg-white">
+        <div className="mx-auto flex max-w-5xl items-center gap-6 px-4 py-3 md:px-8">
+          <div className="flex items-center gap-2.5">
+            <LogoMark size={28} />
+            <span className="font-display text-lg font-black">NutriTrack</span>
           </div>
-          <button onClick={() => logout()} className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-ink-soft hover:bg-paper">
-            Log out
-          </button>
+
+          <nav className="hidden items-center gap-1 md:flex" aria-label="Main">
+            {[...NAV_ITEMS, ...DESKTOP_ONLY].map((item) => (
+              <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => topLinkClass(isActive)}>
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+
+          <div className="ml-auto flex items-center gap-3">
+            <span className="hidden max-w-48 truncate text-sm text-ink-soft lg:block">{label}</span>
+            <button onClick={() => logout()} className="px-2.5 py-1.5 text-sm font-bold underline underline-offset-4 hover:bg-wash">
+              Log out
+            </button>
+          </div>
         </div>
-      </aside>
+      </header>
 
-      <div className="flex min-h-screen min-w-0 flex-1 flex-col pb-20 md:pb-0">
-        <VerifyBanner />
-        <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 md:px-8 md:py-10">
-          <Outlet />
-        </main>
-      </div>
+      <VerifyBanner />
+      <main className="mx-auto w-full max-w-3xl flex-1 px-4 pb-24 pt-6 md:px-8 md:pb-12 md:pt-10">
+        <Outlet />
+      </main>
 
-      <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-10 flex border-t border-line bg-white md:hidden">
+      <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-10 flex border-t-4 border-ink bg-white md:hidden">
         {NAV_ITEMS.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             end={item.end}
             className={({ isActive }) =>
-              `flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium ${isActive ? "text-pine-dark" : "text-ink-soft"}`
+              `flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-bold ${isActive ? "bg-mark text-ink" : "text-ink-soft"}`
             }
           >
             <Icon name={item.icon} size={20} />

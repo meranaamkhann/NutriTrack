@@ -3,6 +3,7 @@ import { db } from "../../db/client.js";
 import { foodLogs, recipeLogs, goalsHistory } from "../../db/schema.js";
 import { AppError } from "../../utils/AppError.js";
 import { endOfUtcDay } from "../../lib/dates.js";
+import { assertSnapshotsFit } from "../../lib/numeric.js";
 
 type MealType = (typeof foodLogs.$inferSelect)["meal"];
 type ServingUnit = (typeof foodLogs.$inferSelect)["servingUnitSnapshot"];
@@ -98,6 +99,12 @@ export async function updateRecipeLog(userId: string, id: string, servingsConsum
   // Scale from the ORIGINAL snapshot, never from the live recipe, so editing
   // a portion can't silently pull in later changes to the recipe.
   const ratio = servingsConsumed / Number(existing.servingsConsumed);
+  assertSnapshotsFit([
+    Number(existing.caloriesSnapshot) * ratio,
+    Number(existing.proteinGSnapshot) * ratio,
+    Number(existing.carbGSnapshot) * ratio,
+    Number(existing.fatGSnapshot) * ratio
+  ]);
   const [updated] = await db
     .update(recipeLogs)
     .set({

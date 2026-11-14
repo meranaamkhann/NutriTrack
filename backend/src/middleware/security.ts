@@ -24,7 +24,7 @@ export const corsMiddleware = cors({
   origin: env.CORS_ORIGIN.split(",").map((o) => o.trim()),
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  allowedHeaders: ["Content-Type", "Authorization", "X-Export-Token"]
 });
 
 export function requestId(req: Request, res: Response, next: NextFunction) {

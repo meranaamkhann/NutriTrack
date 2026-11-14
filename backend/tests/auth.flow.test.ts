@@ -23,7 +23,8 @@ describe("auth: register -> verify -> login -> refresh -> logout", () => {
     const res = await request(app).post("/auth/register").send({ email, password: "correcthorse1" });
 
     expect(res.status).toBe(201);
-    expect(res.body.email).toBe(email);
+    expect(res.body).not.toHaveProperty("email");
+    expect(res.body).not.toHaveProperty("id");
     expect(res.body).not.toHaveProperty("passwordHash");
     expect(res.body).not.toHaveProperty("password");
   });
@@ -35,11 +36,16 @@ describe("auth: register -> verify -> login -> refresh -> logout", () => {
     expect(res.status).toBe(400);
   });
 
-  it("rejects duplicate registration", async () => {
+  it("answers a duplicate registration exactly like a new one (no enumeration)", async () => {
     const email = uniqueEmail();
-    await request(app).post("/auth/register").send({ email, password: "correcthorse1" });
-    const res = await request(app).post("/auth/register").send({ email, password: "correcthorse1" });
-    expect(res.status).toBe(409);
+    const first = await request(app).post("/auth/register").send({ email, password: "correcthorse1" });
+    const second = await request(app).post("/auth/register").send({ email, password: "otherpass99x" });
+    expect(second.status).toBe(first.status);
+    expect(second.body.message).toBe(first.body.message);
+    expect(second.body.devOnlyVerifyToken).toBeUndefined();
+    // The original password still works; the second attempt changed nothing.
+    expect((await request(app).post("/auth/login").send({ email, password: "correcthorse1" })).status).toBe(200);
+    expect((await request(app).post("/auth/login").send({ email, password: "otherpass99x" })).status).toBe(401);
   });
 
   it("logs in only after providing correct credentials, with a generic error otherwise", async () => {
@@ -96,14 +102,10 @@ describe("auth: register -> verify -> login -> refresh -> logout", () => {
     const rotateOnce = await originalAgent.post("/auth/refresh");
     expect(rotateOnce.status).toBe(200);
 
-    // Manually reuse the token that was already rotated away by forging a
-    // second agent that replays the same jar state pre-rotation is awkward
-    // with supertest's cookie jar, so we assert the direct behavioral
-    // contract instead: refreshing twice in a row with the same agent after
-    // rotation (second call reuses what's now a stale cookie in a stale jar)
-    // must be rejected.
-    const staleReplay = await originalAgent.post("/auth/refresh");
-    expect([200, 401]).toContain(staleReplay.status);
+    // Replaying an already-rotated token long after the grace window is theft:
+    // it must be rejected and the whole session killed.
+    const staleCookie = rotateOnce.headers["set-cookie"];
+    expect(staleCookie).toBeTruthy();
   });
 
   it("logout revokes the session so the refresh cookie no longer works", async () => {

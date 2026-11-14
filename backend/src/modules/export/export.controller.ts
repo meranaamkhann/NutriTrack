@@ -1,4 +1,5 @@
 import { asyncHandler } from "../../utils/asyncHandler.js";
+import { AppError } from "../../utils/AppError.js";
 import * as service from "./export.service.js";
 
 export const createExport = asyncHandler(async (req, res) => {
@@ -7,11 +8,11 @@ export const createExport = asyncHandler(async (req, res) => {
 });
 
 export const downloadExport = asyncHandler(async (req, res) => {
-  const { content, format } = await service.downloadExport(
-    req.user!.id,
-    req.params.id,
-    req.query.token as string
-  );
+  const headerToken = req.get("x-export-token");
+  const token = headerToken ?? (req.query.token as string | undefined);
+  if (!token) throw new AppError("BAD_REQUEST", "Missing export token");
+
+  const { content, format } = await service.downloadExport(req.user!.id, req.params.id, token);
   res.setHeader(
     "Content-Type",
     format === "JSON" ? "application/json" : "text/csv"

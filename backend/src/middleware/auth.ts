@@ -12,25 +12,37 @@ declare module "express-serve-static-core" {
 }
 
 export async function requireAuth(req: Request, _res: Response, next: NextFunction) {
-  try {
-    const header = req.headers.authorization;
-    if (!header?.startsWith("Bearer ")) {
-      throw new AppError("UNAUTHORIZED", "Missing access token");
-    }
-    const token = header.slice("Bearer ".length);
-    const payload = verifyAccessToken(token);
+  const header = req.headers.authorization;
+  if (!header?.startsWith("Bearer ")) {
+    next(new AppError("UNAUTHORIZED", "Missing access token"));
+    return;
+  }
 
+  let payload: ReturnType<typeof verifyAccessToken>;
+  try {
+    payload = verifyAccessToken(header.slice("Bearer ".length));
+  } catch {
+    next(new AppError("UNAUTHORIZED", "Invalid or expired access token"));
+    return;
+  }
+
+  // A database failure here is a 500, not "your token is bad": reporting it
+  // as 401 would make the client throw away a perfectly good session.
+  try {
     const [user] = await db
       .select({ id: users.id, role: users.role })
       .from(users)
       .where(eq(users.id, payload.sub))
       .limit(1);
-    if (!user) throw new AppError("UNAUTHORIZED", "Invalid session");
+    if (!user) {
+      next(new AppError("UNAUTHORIZED", "Invalid session"));
+      return;
+    }
 
     req.user = { id: user.id, role: user.role, sessionId: payload.sid };
     next();
-  } catch {
-    next(new AppError("UNAUTHORIZED", "Invalid or expired access token"));
+  } catch (err) {
+    next(err);
   }
 }
 
